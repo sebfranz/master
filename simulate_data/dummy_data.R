@@ -69,6 +69,9 @@ Z_r[,R_1] %*% diag(s_1 )
 # complete matrix beta then has dimension Pr x Pt!
     # this might actually need to be an array of dim K x Pr x Pt
     # with separate depth representing different model
+#todo: instead use R or S, create a beta matrix for each row
+  #Beta_i then should only have barameters for the non-zero 
+  # entries of R
 Beta <- matrix( data = rnorm(Pt * Pr, mean = 100, sd = 10),
                nrow = Pr, ncol=Pt)
 
