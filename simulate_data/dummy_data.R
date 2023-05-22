@@ -1,4 +1,4 @@
-#lite rkod för att testköra scregclust
+# Lite R-kod för att testköra scregclust
 
 library(scregclust)
 #?scregclust
@@ -13,7 +13,11 @@ Pr <- 5    #number of regulator genes
 n <- 100   #number of cells
 K <- 3     #Number of target gene clusters
 
-#matrix of true cluster allocations
+# Binary matrix Pi --------------------------------------------------------
+# Which target gene is allocated to which cluster.
+# Here it's randomly generated, for real data it would be smartly guessed.
+# Rows are cluster index.
+# Cols are target gene index.
 Pi <- matrix(0, K, Pt)
 
 for(index in 1:Pt){
@@ -21,16 +25,18 @@ for(index in 1:Pt){
 }
 Pi
 
-# for each cluster, the subset of
-# regulators that are affecting that cluster R_i
-# note that regulators can affect any number of clusters
+# Binary matrix R ---------------------------------------------------------
+# The regulators (columns) that affect each cluster (rows, i in the manuscript).
+# Note that in the paper this is a vector with set of indexes,
+# not a binary matrix, see code for an example.
+# Note that regulators can affect any number of clusters.
 
-set.seed(12345)
-R <- matrix(rbinom( K * Pr, 1, 1/K), K, Pr) #row i is an indicator version of R_i in manuscript
+set.seed(12345)  # To get a nice matrix
+R <- matrix(rbinom( K * Pr, 1, 1/K), K, Pr)  # Row i is an indicator version of R_i in manuscript
 R
 
-R[1,] #cluster 1 is affected by these regulators
-sum(R[1,]) #|R_1| is the amount of regulator genes affecting cluster 1
+R[1,]  # Cluster 1 is affected by these regulators
+sum(R[1,])  # R_1 in the manuscript is which regulators affect cluster 1
 
 R2R_i <- function(i) {
   which(R[i,]!= 0)
@@ -38,43 +44,45 @@ R2R_i <- function(i) {
 R2R_i(1) # R_1 in the manuscript is which regulators affect cluster 1
 
 
-#we start by making S, a K x Pr matrix with ones/minus ones if the columns
-#regulator affects that rows cluster, zeroes otherwise.
-# This has the same information as the publications' s_i
+# Matrix S ----------------------------------------------------------------
+# A K x Pr matrix with 1 or -1 if the regulator (columns)
+# of how (1 stimulating, -1 repressing) a regulator affects a cluster (rows),
+# 0 if it doesn't affect it.
+# This has the same information as the manuscript's s_i
 set.seed(10)
-S <- R * matrix(rbinom(n = K * Pr, 1, 0.8)*2-1 , K, Pr) #just randomize signs
+S <- R * matrix(rbinom(n = K * Pr, 1, 0.8)*2-1 , K, Pr)  # Just randomize signs
 S
 
 S2S_i <- function(i) {
   S[i, which(S[i,]!= 0) ]
 }
-S2S_i(2) #nonzero entries of this is s_i in manuscript
+S2S_i(2)  # Non-zero entries of this is s_i in manuscript
 
-#For each regulator j in module i, a mean value was
-#chosen uniformly at random between 0.01 and 0.1
+# For each regulator j in module i, a mean value was
+# chosen uniformly at random between 0.01 and 0.1
 # Regulator_means<- runif(Pr, 0.01, 0.1)
 # Regulator_means
 
-#now generate Zr
-
-#just get some random expression for regulator genes for now
+# Matrix Zr ---------------------------------------------------------------
+# n x Pr, cells are rows, regulator genes are columns
+# Just get some random expression for regulator genes for now
 Z_r <- matrix( data = rnorm(n * Pr, mean = 1, sd = 0.1),
                nrow = n, ncol=Pr)
 Z_r
 dim(Z_r)
 
-#now we want to build beta and use beta to build Z_t
-
-#For that we need some coefficients from our regression models
+# Now we want to build 𝚩 and use 𝚩 to build Z_t.
+# For that we need some coefficients from our regression models.
 # These coefficients are stored in the array Beta, which has
-#dimension Pr x Pt x K
-#in this we store the (in the manuscript only the nonzero) coefficients
-#describing how the regulator genes affect the target genes.
+# dimension Pr x Pt x K
+# in this we store the (in the manuscript only the non-zero) coefficients
+# describing how the regulator genes affect the target genes.
 
-#for now its just one distr could be made more sophisticated
+# For now its just one distr could be made more sophisticated
 
 Beta <- array(data = rnorm(K * Pt * Pr, mean = 1, sd = 0.1), c(Pr,Pt,K))
-#make beta zero in appropriate spots
+
+# Make 𝚩 zero in appropriate spots
 for (clust in 1:K){
   Beta[,,clust] <-  diag(R[clust,]) %*% Beta[,,clust]
 }
@@ -89,7 +97,7 @@ dim(Beta)
 # Beta_alt
 
 
-#in the manuscript the zero rows are just dropped
+# In the manuscript the zero rows are just dropped
 
 
 Beta2Beta_i <- function(i){
@@ -99,12 +107,12 @@ Beta2Beta_i <- function(i){
 Beta2Beta_i(3)
 Beta[,,3]
 
-# if j is one target cell, that cells expression should then be,
-# according to (1) in the manuscript
+# If j is one target cell, that cells expression should then be,
+# according to (1) in the manuscript.
 
-  # Z_t could below be initialized to something nonzero, and in the next step the
-  # right hand side could be added instead of just inserted, this would make the
-    # initialisation similar to some baseline exposure, or intercept in the model.
+# Z_t could below be initialized to something nonzero, and in the next step the
+# right hand side could be added instead of just inserted, this would make the
+# initialisation similar to some baseline exposure, or intercept in the model.
 
 Z_t <- matrix( data = 0,
                nrow = n, ncol=Pt)
@@ -122,7 +130,7 @@ for(i in 1:K){
       )
   }
   cat(paste0("building cluster ", i,"\n"))
-} #this can probably be vectorized
+}  # This can probably be vectorized
 
 # Z_t
 dim(Z_t)
