@@ -1,13 +1,5 @@
 # Lite R-kod för att testköra scregclust
 
-library(scregclust)
-#?scregclust
-
-
-#TODO make below a callable function
-
-set.seed(3333)
-
 Pt <- 10   #number of target genes
 Pr <- 5    #number of regulator genes
 n <- 100   #number of cells
@@ -18,6 +10,8 @@ K <- 3     #Number of target gene clusters
 # Here it's randomly generated, for real data it would be smartly guessed.
 # Rows are cluster index.
 # Cols are target gene index.
+
+set.seed(3333) #To get a nice matrix
 Pi <- matrix(0, K, Pt)
 
 for(index in 1:Pt){
@@ -49,7 +43,7 @@ R2R_i(1) # R_1 in the manuscript is which regulators affect cluster 1
 # of how (1 stimulating, -1 repressing) a regulator affects a cluster (rows),
 # 0 if it doesn't affect it.
 # This has the same information as the manuscript's s_i
-set.seed(10)
+set.seed(10) # to get a nice matrix
 S <- R * matrix(rbinom(n = K * Pr, 1, 0.8)*2-1 , K, Pr)  # Just randomize signs
 S
 
@@ -71,16 +65,17 @@ Z_r <- matrix( data = rnorm(n * Pr, mean = 1, sd = 0.1),
 Z_r
 dim(Z_r)
 
+# Array 𝚩 ---------------------------------------------------------------
 # Now we want to build 𝚩 and use 𝚩 to build Z_t.
 # For that we need some coefficients from our regression models.
 # These coefficients are stored in the array Beta, which has
-# dimension Pr x Pt x K
+# dimension Pt x Pr x K
 # in this we store the (in the manuscript only the non-zero) coefficients
 # describing how the regulator genes affect the target genes.
 
 # For now its just one distr could be made more sophisticated
 
-Beta <- array(data = rnorm(K * Pt * Pr, mean = 1, sd = 0.1), c(Pr,Pt,K))
+Beta <- array(data = rnorm( Pt * Pr * K, mean = 1, sd = 0.1), c(Pr,Pt,K))
 
 # Make 𝚩 zero in appropriate spots
 for (clust in 1:K){
@@ -89,24 +84,16 @@ for (clust in 1:K){
 Beta
 dim(Beta)
 
-
-# Beta_alt <- x <- vector(mode = "list", length = K)
-# for (clust in 1:K){
-#   Beta_alt[[clust]] <-  as.matrix( Beta[which(Beta[,1,clust] != 0),,clust])
-# } # this can probably be vectorized
-# Beta_alt
-
-
 # In the manuscript the zero rows are just dropped
-
 
 Beta2Beta_i <- function(i){
   matrix(data = Beta[R2R_i(i),,i], nrow = length(R2R_i(i)), ncol = Pt)
 }
 
-Beta2Beta_i(3)
+Beta2Beta_i(3) #Beta_i as in the manuscript, has dimension |R_i| x Pt
 Beta[,,3]
 
+# Matrix Z_t --------------------------------------------------------------
 # If j is one target cell, that cells expression should then be,
 # according to (1) in the manuscript.
 
@@ -114,8 +101,7 @@ Beta[,,3]
 # right hand side could be added instead of just inserted, this would make the
 # initialisation similar to some baseline exposure, or intercept in the model.
 
-Z_t <- matrix( data = 0,
-               nrow = n, ncol=Pt)
+Z_t <- matrix( data = 0, nrow = n, ncol=Pt)
 
 #todo:  vectorize this
 for(i in 1:K){
@@ -130,12 +116,33 @@ for(i in 1:K){
       )
   }
   cat(paste0("building cluster ", i,"\n"))
-}  # This can probably be vectorized
+}
+# This can probably be vectorized
+# For this we are omitting the variance terms.
+# Z_t, Z_r, S_i, and B_i as here will minimize (1) in the manuscript
+
 
 # Z_t
 dim(Z_t)
 
+# apply simulated data to scregclust ---------------------------------------
+library(scregclust)
+?scregclust
 
 
+scregclust(
+  expression = rbind(t(Z_t), t(Z_r)),    #scRegClust wants this form
+  genesymbols = 1:(Pt+Pr),               #gene row numbers
+  is_regulator = (genesymbols > Pt) + 0, #vector indicating which genes are regulators
+  target_cluster_start = K,
+  penalization = max(sapply(seq_along(R[,1]), function(i) sum(R[i,])))
+  #maximal number of regulators for one cluster
+)-> scRegOut
 
+names(scRegOut)
 
+scRegOut$results
+
+R
+
+Pi
