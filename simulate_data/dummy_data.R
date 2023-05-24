@@ -62,6 +62,8 @@ S2S_i(2)  # Non-zero entries of this is s_i in manuscript
 # Just get some random expression for regulator genes for now
 Z_r <- matrix( data = rnorm(n * Pr, mean = 1, sd = 0.1),
                nrow = n, ncol=Pr)
+# Z_r <- sapply(1:Pr, function(i)  rnorm(n, mean = runif(1, 0.1,1), sd = 0.1) )
+
 Z_r
 dim(Z_r)
 
@@ -76,6 +78,10 @@ dim(Z_r)
 # For now its just one distr could be made more sophisticated
 
 Beta <- array(data = rnorm( Pt * Pr * K, mean = 1, sd = 0.1), c(Pr,Pt,K))
+
+# Beta <- array( data = unlist(
+#   sapply(1:K, function(i) rnorm(Pr*Pt, mean = runif(1,min = 1, max = 1), sd = 0.1), simplify = F)
+# ), dim = c(Pr,Pt,K) )
 
 # Make 𝚩 zero in appropriate spots
 for (clust in 1:K){
@@ -108,11 +114,11 @@ for(i in 1:K){
   for(j in 1 : Pt){
     Z_t[,j] <-
       Z_t[,j] +
-      Pi[i,j] *
-      (
-        Z_r[,R2R_i(i)] %*%
-          diag(S2S_i(i)) %*%
-          Beta2Beta_i(i)[,j]
+      Pi[i,j] *               #  True cluster allocation, zero if Z_t[,j] is
+      (                       # not in cluster i
+        Z_r[,R2R_i(i)] %*%    #  Gene expression of regulators of cluster i
+          diag(S2S_i(i)) %*%  #  signs for wether regulators are stim or repress
+          Beta2Beta_i(i)[,j]  #  how much reg of cluster i affects target j
       )
   }
   cat(paste0("building cluster ", i,"\n"))
@@ -133,13 +139,11 @@ library(scregclust)
 scregclust(
   expression = rbind(t(Z_t), t(Z_r)),    #scRegClust wants this form
   genesymbols = 1:(Pt+Pr),               #gene row numbers
-  is_regulator = (genesymbols > Pt) + 0, #vector indicating which genes are regulators
+  is_regulator = (1:(Pt+Pr) > Pt) + 0, #vector indicating which genes are regulators
   target_cluster_start = K,
-  penalization = max(sapply(seq_along(R[,1]), function(i) sum(R[i,])))
+  penalization = max(sapply(seq_along(R[,1]), function(i) sum(R[i,]))) + 1
   #maximal number of regulators for one cluster
 )-> scRegOut
-
-names(scRegOut)
 
 scRegOut$results
 
