@@ -71,13 +71,13 @@ dim(Z_r)
 # Now we want to build 𝚩 and use 𝚩 to build Z_t.
 # For that we need some coefficients from our regression models.
 # These coefficients are stored in the array Beta, which has
-# dimension Pt x Pr x K
+# dimension  Pr x Pt x K
 # in this we store the (in the manuscript only the non-zero) coefficients
 # describing how the regulator genes affect the target genes.
 
 # For now its just one distr could be made more sophisticated
 
-Beta <- array(data = rnorm( Pt * Pr * K, mean = 1, sd = 0.1), c(Pr,Pt,K))
+Beta <- array(data = rnorm( Pr * Pt * K, mean = 1, sd = 0.1), c(Pr,Pt,K))
 
 # Beta <- array( data = unlist(
 #   sapply(1:K, function(i) rnorm(Pr*Pt, mean = runif(1,min = 1, max = 1), sd = 0.1), simplify = F)
