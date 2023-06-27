@@ -2,24 +2,12 @@ execution_path <- dirname(rstudioapi::getSourceEditorContext()$path)
 source(paste0(execution_path,"/dummy_data.R"))
 
 
-Pt = 10      #number of target genes
-Pr = 5       #number of regulator genes
-n  = 10000   #number of cells
-K  = 3       #Number of target gene clusters
+Pt               = 10      #number of target genes
+Pr               = 5       #number of regulator genes
+n                = 10000   #number of cells
+K                = 3       #Number of target gene clusters
 regulator_mean   = 1
 coefficient_mean = 1
-
-#generate dummy data for each cell cluster that we want
-dummy_res <- generate_dummy_data(Pt, Pr, n, K, regulator_mean, coefficient_mean)
-
-#hack to get the list dummy_res into the global environment
-for(iter in 1:length(names(dummy_res))) {
-  assign(eval(names(dummy_res)[iter]),dummy_res[[iter]])
-}
-
-# scRegOut$results
-# plot(scRegOut)$data
-
 
 ############## preprocessing
 
@@ -37,9 +25,6 @@ for(iter in 1:length(names(dummy_res))) {
 
 #run scRegClust with proper initializations for each cell cluster.
 
-
-
-
 #maybe to start
 
 # 1 randomly split cells into train&val
@@ -47,9 +32,21 @@ for(iter in 1:length(names(dummy_res))) {
 # 3 for each cluster run scregclust
 # 4 evaluate etc
 
-K_cells <- 3
+K_cells <- 3 #number of cell clusters
 
-cell_data_split    <- sample(c(1,2),n, replace = T)
+#generate dummy data for each cell cluster that we want
+dummy_res_1 <- generate_dummy_data(Pt, Pr, n, K,
+                                   regulator_mean, coefficient_mean = 1)
+dummy_res_2 <- generate_dummy_data(Pt, Pr, n, K,
+                                   regulator_mean, coefficient_mean = 2)
+dummy_res_3 <- generate_dummy_data(Pt, Pr, n, K,
+                                   regulator_mean, coefficient_mean = 3)
+#append data
+Z_t <- rbind( dummy_res_1$Z_t, dummy_res_2$Z_t, dummy_res_3$Z_t)
+Z_r <- rbind( dummy_res_1$Z_r, dummy_res_2$Z_r, dummy_res_3$Z_r)
+dat <- rbind(t(Z_t), t(Z_r)) #columns are now cells
+
+cell_data_split    <- sample(c(1,2), nrow(Z_t), replace = T)
 train_indices      <- which(cell_data_split == 1)
 train_dat          <- dat[,train_indices]
 initial_cell_clust <- kmeans(t(train_dat), K_cells)$cluster #get initial cell clustering
@@ -63,7 +60,7 @@ for(inner_loop in 1:K_cells){
 
   cell_data_split    <- sample(c(1,2),ncol(local_dat), replace = T)    # train 1 val 2
 
-  gene_cluster_start <- kmeans(local_dat[1:Pt,], K)$cluster        # initial clustering
+  gene_cluster_start <- kmeans(local_dat[1:Pt,], K)$cluster        # initial target gene clustering
 
   #run scregclust
   scregclust(
@@ -81,6 +78,22 @@ for(inner_loop in 1:K_cells){
 
 out_list[[1]]$results
 
+out_list[[1]]$results$cluster
+
+out_list[[1]]$cluster
+
 out_list[[2]]$results
 
 out_list[[3]]$results
+
+#now we arrive at the question, how do we update cell clusters given all this new information about the gene cluster structure within each previous cell cluster.
+
+# Reb talked about using R2? what would that mean?
+#if we can extract the regression model from each
+
+
+
+
+
+
+

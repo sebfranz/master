@@ -22,7 +22,6 @@ for(iter in 1:length(names(dummy_res))) {
 library(scregclust)
 ?scregclust
 
-
 scregclust(
   expression = rbind(t(Z_t), t(Z_r)),    #scRegClust wants this form
   genesymbols = 1:(Pt+Pr),               #gene row numbers
@@ -34,7 +33,8 @@ scregclust(
 )-> scRegOut
 
 scRegOut$results
+Pi
 R
 plot(scRegOut)$data
 
-Pi
+

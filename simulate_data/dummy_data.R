@@ -1,7 +1,7 @@
 # Lite R-kod för att testköra scregclust
 
 # Pt <- 10   #number of target genes
-# Pr <- 10    #number of regulator genes
+# Pr <- 5    #number of regulator genes
 # n <- 100   #number of cells
 # K <- 3     #Number of target gene clusters
 # regulator_mean   = 1
@@ -24,8 +24,8 @@ generate_dummy_data <- function(
   # set.seed(3333) #To get a nice matrix
   Pi <- matrix(0, K, Pt)
 
-  #to guarantee at least one target cell per cluster, assign the first K target
-  #cells to different clusters
+  #to guarantee at least one target gene per cluster, assign the first K target
+  #gene to different clusters
   for(index in 1:K){
     Pi[ index, index] <- 1
   }
@@ -101,7 +101,9 @@ generate_dummy_data <- function(
 
   # For now its just one distr could be made more sophisticated
 
-  Beta <- array(data = abs(rnorm( Pr * Pt * K, mean = coefficient_mean, sd = 0.1)), c(Pr,Pt,K))
+  Beta <- array(data = abs(rnorm( Pr * Pt * K,
+                                  mean = coefficient_mean, sd = 0.1)),
+                c(Pr,Pt,K))
 
   # Beta <- array( data = unlist(
   #   sapply(1:K, function(i) rnorm(Pr*Pt, mean = runif(1,min = 1, max = 1), sd = 0.1), simplify = F)
