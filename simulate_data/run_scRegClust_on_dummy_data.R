@@ -1,8 +1,19 @@
 
 execution_path <- dirname(rstudioapi::getSourceEditorContext()$path)
 source(paste0(execution_path,"/dummy_data.R"))
-generate_dummy_data()
 
+
+Pt = 10      #number of target genes
+Pr = 5       #number of regulator genes
+n  = 10000   #number of cells
+K  = 3       #Number of target gene clusters
+regulator_mean   = 1
+coefficient_mean = 3
+
+#generate dummy data for each cell cluster that we want
+dummy_res <- generate_dummy_data(Pt, Pr, n, K, regulator_mean, coefficient_mean)
+
+#hack to get the list dummy_res into the global environment
 for(iter in 1:length(names(dummy_res))) {
   assign(eval(names(dummy_res)[iter]),dummy_res[[iter]])
 }
@@ -23,7 +34,7 @@ scregclust(
 )-> scRegOut
 
 scRegOut$results
-plot(scRegOut)$data
 R
+plot(scRegOut)$data
 
 Pi

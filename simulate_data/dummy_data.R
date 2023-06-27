@@ -1,9 +1,11 @@
 # Lite R-kod för att testköra scregclust
 
 # Pt <- 10   #number of target genes
-# Pr <- 5    #number of regulator genes
+# Pr <- 10    #number of regulator genes
 # n <- 100   #number of cells
 # K <- 3     #Number of target gene clusters
+# regulator_mean   = 1
+# coefficient_mean = 1
 
 # Binary matrix Pi --------------------------------------------------------
 # Which target gene is allocated to which cluster.
@@ -11,18 +13,27 @@
 # Rows are cluster index.
 # Cols are target gene index.
 generate_dummy_data <- function(
-    Pt = 10,    #number of target genes
-    Pr = 5,     #number of regulator genes
-    n  = 100,   #number of cells
-    K  = 3     #Number of target gene clusters
+    Pt = 10,              #number of target genes
+    Pr = 5,               #number of regulator genes
+    n  = 100,             #number of cells
+    K  = 3,               #Number of target gene clusters
+    regulator_mean   = 1, #mean expression of regulator genes
+    coefficient_mean = 1  #mean coefficient in true  model
     )
 {
-  set.seed(3333) #To get a nice matrix
+  # set.seed(3333) #To get a nice matrix
   Pi <- matrix(0, K, Pt)
 
-  for(index in 1:Pt){
+  #to guarantee at least one target cell per cluster, assign the first K target
+  #cells to different clusters
+  for(index in 1:K){
+    Pi[ index, index] <- 1
+  }
+  #set rest of matrix randomly
+  for(index in (K + 1):Pt){
     Pi[ sample.int( n = K, size = 1), index] <- 1
   }
+
   Pi
 
   # Binary matrix R ---------------------------------------------------------
@@ -31,8 +42,16 @@ generate_dummy_data <- function(
   # not a binary matrix, see code for an example.
   # Note that regulators can affect any number of clusters.
 
-  set.seed(12345)  # To get a nice matrix
+  # set.seed(12345)  # To get a nice matrix
   R <- matrix(rbinom( K * Pr, 1, 1/K), K, Pr)  # Row i is an indicator version of R_i in manuscript
+
+  #check if any cluster (row) has no regulator, and if so assign one
+  for(row in 1:K){
+    if(sum(R[row,]) == 0){
+      R[row, sample.int(Pr, 1)] <- 1
+    }
+  }
+
   R
 
   R[1,]  # Cluster 1 is affected by these regulators
@@ -43,13 +62,12 @@ generate_dummy_data <- function(
   }
   R2R_i(1) # R_1 in the manuscript is which regulators affect cluster 1
 
-
   # Matrix S ----------------------------------------------------------------
   # A K x Pr matrix with 1 or -1 if the regulator (columns)
   # of how (1 stimulating, -1 repressing) a regulator affects a cluster (rows),
   # 0 if it doesn't affect it.
   # This has the same information as the manuscript's s_i
-  set.seed(10) # to get a nice matrix
+  # set.seed(10) # to get a nice matrix
   S <- R * matrix(rbinom(n = K * Pr, 1, 0.8)*2-1 , K, Pr)  # Just randomize signs
   S
 
@@ -66,7 +84,7 @@ generate_dummy_data <- function(
   # Matrix Zr ---------------------------------------------------------------
   # n x Pr, cells are rows, regulator genes are columns
   # Just get some random expression for regulator genes for now
-  Z_r <- matrix( data = rnorm(n * Pr, mean = 1, sd = 0.1),
+  Z_r <- matrix( data = rnorm(n * Pr, mean = regulator_mean, sd = 0.1),
                  nrow = n, ncol=Pr)
   # Z_r <- sapply(1:Pr, function(i)  rnorm(n, mean = runif(1, 0.1,1), sd = 0.1) )
 
@@ -83,7 +101,7 @@ generate_dummy_data <- function(
 
   # For now its just one distr could be made more sophisticated
 
-  Beta <- array(data = abs(rnorm( Pr * Pt * K, mean = 1, sd = 0.1)), c(Pr,Pt,K))
+  Beta <- array(data = abs(rnorm( Pr * Pt * K, mean = coefficient_mean, sd = 0.1)), c(Pr,Pt,K))
 
   # Beta <- array( data = unlist(
   #   sapply(1:K, function(i) rnorm(Pr*Pt, mean = runif(1,min = 1, max = 1), sd = 0.1), simplify = F)

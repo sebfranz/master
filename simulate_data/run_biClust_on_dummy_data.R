@@ -6,10 +6,11 @@ Pt = 10      #number of target genes
 Pr = 5       #number of regulator genes
 n  = 10000   #number of cells
 K  = 3       #Number of target gene clusters
-
+regulator_mean   = 1
+coefficient_mean = 1
 
 #generate dummy data for each cell cluster that we want
-dummy_res <- generate_dummy_data(Pt, Pr, n,K)
+dummy_res <- generate_dummy_data(Pt, Pr, n, K, regulator_mean, coefficient_mean)
 
 #hack to get the list dummy_res into the global environment
 for(iter in 1:length(names(dummy_res))) {
