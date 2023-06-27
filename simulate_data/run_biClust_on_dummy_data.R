@@ -78,9 +78,7 @@ for(inner_loop in 1:K_cells){
 
 out_list[[1]]$results
 
-out_list[[1]]$results$cluster
-
-out_list[[1]]$cluster
+str(out_list[[1]], vec.len=Inf)
 
 out_list[[2]]$results
 
@@ -91,6 +89,13 @@ out_list[[3]]$results
 # Reb talked about using R2? what would that mean?
 #if we can extract the regression model from each
 
+# subproblem;
+  # for a cell, compute the MSE, and r2 of that one cell
+  # do this for ALL regression models in ALL cell clusters.
+  # use this to find which cell cluster a given cell fits best into
+# sub-sub-problem;
+  # each cell cluster contains several regression models, one for each target
+  # gene cluster
 
 
 
