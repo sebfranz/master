@@ -1,6 +1,8 @@
+rm(list = ls())
 execution_path <- dirname(rstudioapi::getSourceEditorContext()$path)
 source(paste0(execution_path,"/dummy_data.R"))
 library(scregclust)
+set.seed(12411)
 
 Pt               = 10      #number of target genes
 Pr               = 5       #number of regulator genes
@@ -40,21 +42,26 @@ dummy_res_2 <- generate_dummy_data(Pt, Pr, n, K,
                                    regulator_mean, coefficient_mean = 2)
 dummy_res_3 <- generate_dummy_data(Pt, Pr, n, K,
                                    regulator_mean, coefficient_mean = 3)
-#append data
+# Append data
 Z_t <- rbind( dummy_res_1$Z_t, dummy_res_2$Z_t, dummy_res_3$Z_t)
 Z_r <- rbind( dummy_res_1$Z_r, dummy_res_2$Z_r, dummy_res_3$Z_r)
 dat <- rbind(t(Z_t), t(Z_r)) #columns are now cells
 
-cell_data_split    <- sample(c(1,2), nrow(Z_t), replace = T)
-train_indices      <- which(cell_data_split == 1)
-train_dat          <- dat[,train_indices]
+# Split into train and test data for cell clustering
+# Skip for now
+# cell_data_split    <- sample(c(1,2), nrow(Z_t), replace = T)
+# train_indices      <- which(cell_data_split == 1)
+# train_dat          <- dat[,train_indices]
+
+train_dat <- dat
 initial_cell_clust <- kmeans(t(train_dat), K_cells)$cluster #get initial cell clustering
 
-#preallocate outputs
+
+# preallocate outputs
 out_list <- vector(mode = "list", length = K_cells)
 
 for(inner_loop in 1:K_cells){
-  #get local data
+  # get local data
   local_dat <- train_dat[,which(initial_cell_clust == inner_loop)]
 
   cell_data_split    <- sample(c(1,2),ncol(local_dat), replace = T)    # train 1 val 2
@@ -80,54 +87,37 @@ str(out_list[[1]]$results[[1]]$output[[1]])
 
 
 
+# Calculate MSE -----------------------------------------------------------
 
-#extract the different linear models, assume things are in naive order
+# Calculate MSE for per cells per cell cluster,
+# for all target gene clusters in those cell clusters
 
-out_list[[1]]$results[[1]]$output[[1]]$coeffs
+MSE <- vector(mode = "list", length = K_cells)
 
-clustering <- out_list[[1]]$results[[1]]$output[[1]]$cluster[1:Pt]
-genecluster1 <- which(clustering==1)
-genecluster2 <- which(clustering==2)
-genecluster3 <- which(clustering==3)
-#expression of one cell
-xvals <- train_dat[,1][(1:(Pt+Pr) > Pt)]
-yvals <- train_dat[,1][(1:(Pt+Pr) <= Pt)]
+for(i_cell_cluster in 1:K_cells){
+  clustering <- out_list[[i_cell_cluster]]$results[[1]]$output[[1]]$cluster[1:Pt]
 
-betas <- out_list[[1]]$results[[1]]$output[[1]]$coeffs[[1]]
-betas2 <- out_list[[3]]$results[[1]]$output[[1]]$coeffs[[1]]
+  # Expression of all cells
+  # xvals expression of regulator cells
+  # yvals expression of target cells
+  xvals <- train_dat[(1:(Pt+Pr) > Pt), which(initial_cell_clust == i_cell_cluster)]
+  yvals <-  train_dat[(1:(Pt+Pr) <= Pt), which(initial_cell_clust == i_cell_cluster)]
 
-#up to length genecluster1
-yvals[genecluster1[1]] - t(xvals) %*% betas[,1]
-yvals[genecluster1[2]] - t(xvals) %*% betas[,2]
-
-#mse for this cell in this target genecluster
-mean(
-  (yvals[genecluster1[1]] - t(xvals) %*% betas[,1])**2,
-  (yvals[genecluster1[2]] - t(xvals) %*% betas[,2])**2
-)
-
-
-out_list[[2]]$results[[1]]$output[[1]]$coeffs
-clustering <- out_list[[2]]$results[[1]]$output[[1]]$cluster[1:Pt]
-which(clustering==1)
-which(clustering==2)
-which(clustering==3)
-
-out_list[[3]]$results[[1]]$output[[1]]$coeffs
-clustering <- out_list[[3]]$results[[1]]$output[[1]]$cluster[1:Pt]
-which(clustering==1)
-which(clustering==2)
-which(clustering==3)
+  MSE_in_cell_cluster_i <- vector(mode = "list", length = K)
+  for(i_target_gene_cluster in 1:K){
+    betas_for_gene_cluster_i <- out_list[[i_cell_cluster]]$results[[1]]$output[[1]]$coeffs[[i_target_gene_cluster]]
+    target_gene_ids_in_cluster_i <- which(clustering==i_target_gene_cluster)
+    MSE_in_cell_cluster_i[[i_target_gene_cluster]] <- colMeans((yvals[target_gene_ids_in_cluster_i,] - t(betas_for_gene_cluster_i) %*% xvals)**2)
+  }
+  MSE[[i_cell_cluster]] <- MSE_in_cell_cluster_i
+}
+str(MSE)
 
 
 
 
-#calculate MSE for a cell, for each model available, by cell cluster.
-#assume that ta
+# Notes -------------------------------------------------------------------
 
-coeffs <- out_list[[1]]$results[[1]]$output[[1]]$coeffs
-
-coeffs[[1]]
 
 #now we arrive at the question, how do we update cell clusters given all this new information about the gene cluster structure within each previous cell cluster.
 
@@ -135,12 +125,12 @@ coeffs[[1]]
 #if we can extract the regression model from each
 
 # subproblem;
-  # for a cell, compute the MSE, and r2 of that one cell
-  # do this for ALL regression models in ALL cell clusters.
-  # use this to find which cell cluster a given cell fits best into
+# for a cell, compute the MSE, and r2 of that one cell
+# do this for ALL regression models in ALL cell clusters.
+# use this to find which cell cluster a given cell fits best into
 # sub-sub-problem;
-  # each cell cluster contains several regression models, one for each target
-  # gene cluster
+# each cell cluster contains several regression models, one for each target
+# gene cluster
 
 
 
