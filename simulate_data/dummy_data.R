@@ -21,6 +21,7 @@ generate_dummy_data <- function(
     coefficient_mean = 1  #mean coefficient in true  model
     )
 {
+  diag_ <- function(vec)diag(x = vec, nrow = length(vec))
   # set.seed(3333) #To get a nice matrix
   Pi <- matrix(0, K, Pt)
 
@@ -69,12 +70,11 @@ generate_dummy_data <- function(
   # This has the same information as the manuscript's s_i
   # set.seed(10) # to get a nice matrix
   S <- R * matrix(rbinom(n = K * Pr, 1, 0.8)*2-1 , K, Pr)  # Just randomize signs
-  S
 
-  S2S_i <- function(i) {
-    S[i, which(S[i,]!= 0) ]
+  S2S_i <- function(i, mat=S) {
+    mat[i, which(mat[i,]!= 0) ]
   }
-  S2S_i(2)  # Non-zero entries of this is s_i in manuscript
+  # S2S_i(2)  # Non-zero entries of this is s_i in manuscript
 
   # For each regulator j in module i, a mean value was
   # chosen uniformly at random between 0.01 and 0.1
@@ -111,7 +111,7 @@ generate_dummy_data <- function(
 
   # Make 𝚩 zero in appropriate spots
   for (clust in 1:K){
-    Beta[,,clust] <-  diag(R[clust,]) %*% Beta[,,clust]
+    Beta[,,clust] <-  diag_(R[clust,]) %*% Beta[,,clust]
   }
   Beta
   dim(Beta)
@@ -143,7 +143,7 @@ generate_dummy_data <- function(
         Pi[i,j] *               #  True cluster allocation, zero if Z_t[,j] is
         (                       # not in cluster i
           Z_r[,R2R_i(i)] %*%    #  Gene expression of regulators of cluster i
-            diag(S2S_i(i)) %*%  #  signs for wether regulators are stim or repress
+            diag_( S2S_i(i)) %*%  #  signs for wether regulators are stim or repress
             Beta2Beta_i(i)[,j]  #  how much reg of cluster i affects target j
         )
     }

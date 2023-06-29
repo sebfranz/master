@@ -1,13 +1,12 @@
 execution_path <- dirname(rstudioapi::getSourceEditorContext()$path)
 source(paste0(execution_path,"/dummy_data.R"))
-
+library(scregclust)
 
 Pt               = 10      #number of target genes
 Pr               = 5       #number of regulator genes
 n                = 10000   #number of cells
 K                = 3       #Number of target gene clusters
 regulator_mean   = 1
-coefficient_mean = 1
 
 ############## preprocessing
 
@@ -66,7 +65,7 @@ for(inner_loop in 1:K_cells){
   scregclust(
     expression             = local_dat,               #scRegClust wants this form
     split_indices          = cell_data_split,         #train data split
-    genesymbols            = 1:(Pt+Pr),               #gene row numbers
+    genesymbols            = paste0('g', 1:(Pt+Pr)),  #gene row names
     is_regulator           = (1:(Pt+Pr) > Pt) + 0,    #vector indicating which genes are regulators
     n_cl                   = K,
     target_cluster_start   = gene_cluster_start,
@@ -75,14 +74,60 @@ for(inner_loop in 1:K_cells){
   ) -> out_list[[inner_loop]]
 }
 
+# which target genes belong to which cluster>
+str(out_list[[1]]$results[[1]])
+str(out_list[[1]]$results[[1]]$output[[1]])
 
-out_list[[1]]$results
 
-str(out_list[[1]], vec.len=Inf)
 
-out_list[[2]]$results
 
-out_list[[3]]$results
+#extract the different linear models, assume things are in naive order
+
+out_list[[1]]$results[[1]]$output[[1]]$coeffs
+
+clustering <- out_list[[1]]$results[[1]]$output[[1]]$cluster[1:Pt]
+genecluster1 <- which(clustering==1)
+genecluster2 <- which(clustering==2)
+genecluster3 <- which(clustering==3)
+#expression of one cell
+xvals <- train_dat[,1][(1:(Pt+Pr) > Pt)]
+yvals <- train_dat[,1][(1:(Pt+Pr) <= Pt)]
+
+betas <- out_list[[1]]$results[[1]]$output[[1]]$coeffs[[1]]
+betas2 <- out_list[[3]]$results[[1]]$output[[1]]$coeffs[[1]]
+
+#up to length genecluster1
+yvals[genecluster1[1]] - t(xvals) %*% betas[,1]
+yvals[genecluster1[2]] - t(xvals) %*% betas[,2]
+
+#mse for this cell in this target genecluster
+mean(
+  (yvals[genecluster1[1]] - t(xvals) %*% betas[,1])**2,
+  (yvals[genecluster1[2]] - t(xvals) %*% betas[,2])**2
+)
+
+
+out_list[[2]]$results[[1]]$output[[1]]$coeffs
+clustering <- out_list[[2]]$results[[1]]$output[[1]]$cluster[1:Pt]
+which(clustering==1)
+which(clustering==2)
+which(clustering==3)
+
+out_list[[3]]$results[[1]]$output[[1]]$coeffs
+clustering <- out_list[[3]]$results[[1]]$output[[1]]$cluster[1:Pt]
+which(clustering==1)
+which(clustering==2)
+which(clustering==3)
+
+
+
+
+#calculate MSE for a cell, for each model available, by cell cluster.
+#assume that ta
+
+coeffs <- out_list[[1]]$results[[1]]$output[[1]]$coeffs
+
+coeffs[[1]]
 
 #now we arrive at the question, how do we update cell clusters given all this new information about the gene cluster structure within each previous cell cluster.
 
