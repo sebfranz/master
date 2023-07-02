@@ -93,9 +93,9 @@ str(out_list[[1]]$results[[1]]$output[[1]])
 # for all target gene clusters in those cell clusters
 
 MSE <- vector(mode = "list", length = K_cells)
-
+names(MSE) <- paste0('Cell cluster ', 1:K_cells)
 for(i_cell_cluster in 1:K_cells){
-  clustering <- out_list[[i_cell_cluster]]$results[[1]]$output[[1]]$cluster[1:Pt]
+
 
   # Expression of all cells
   # xvals expression of regulator cells
@@ -103,11 +103,18 @@ for(i_cell_cluster in 1:K_cells){
   xvals <- train_dat[(1:(Pt+Pr) > Pt), which(initial_cell_clust == i_cell_cluster)]
   yvals <-  train_dat[(1:(Pt+Pr) <= Pt), which(initial_cell_clust == i_cell_cluster)]
 
-  MSE_in_cell_cluster_i <- vector(mode = "list", length = K)
-  for(i_target_gene_cluster in 1:K){
-    betas_for_gene_cluster_i <- out_list[[i_cell_cluster]]$results[[1]]$output[[1]]$coeffs[[i_target_gene_cluster]]
-    target_gene_ids_in_cluster_i <- which(clustering==i_target_gene_cluster)
-    MSE_in_cell_cluster_i[[i_target_gene_cluster]] <- colMeans((yvals[target_gene_ids_in_cluster_i,] - t(betas_for_gene_cluster_i) %*% xvals)**2)
+  MSE_in_cell_cluster_i <- vector(mode = "list", length = K_cells)
+  names(MSE_in_cell_cluster_i) <- paste0('... MSE for cell cluster ', 1:K_cells)
+  for(ii_cell_cluster in 1:K_cells){
+    clustering <- out_list[[ii_cell_cluster]]$results[[1]]$output[[1]]$cluster[1:Pt]
+    MSE_in_cell_cluster_ii <- vector(mode = "list", length = K)
+    names(MSE_in_cell_cluster_ii) <- paste0('... MSE for target gene cluster ', 1:K_cells)
+    for(i_target_gene_cluster in 1:K){
+      betas_for_gene_cluster_i <- out_list[[ii_cell_cluster]]$results[[1]]$output[[1]]$coeffs[[i_target_gene_cluster]]
+      target_gene_ids_in_cluster_i <- which(clustering==i_target_gene_cluster)
+      MSE_in_cell_cluster_ii[[i_target_gene_cluster]] <- colMeans((yvals[target_gene_ids_in_cluster_i,] - t(betas_for_gene_cluster_i) %*% xvals)**2)
+    }
+    MSE_in_cell_cluster_i[[ii_cell_cluster]] <- MSE_in_cell_cluster_ii
   }
   MSE[[i_cell_cluster]] <- MSE_in_cell_cluster_i
 }
