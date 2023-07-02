@@ -47,6 +47,9 @@ Z_t <- rbind( dummy_res_1$Z_t, dummy_res_2$Z_t, dummy_res_3$Z_t)
 Z_r <- rbind( dummy_res_1$Z_r, dummy_res_2$Z_r, dummy_res_3$Z_r)
 dat <- rbind(t(Z_t), t(Z_r)) #columns are now cells
 
+#update parameters
+n <- ncol(dat)
+
 # Split into train and test data for cell clustering
 # Skip for now
 # cell_data_split    <- sample(c(1,2), nrow(Z_t), replace = T)
@@ -54,15 +57,19 @@ dat <- rbind(t(Z_t), t(Z_r)) #columns are now cells
 # train_dat          <- dat[,train_indices]
 
 train_dat <- dat
-initial_cell_clust <- kmeans(t(train_dat), K_cells)$cluster #get initial cell clustering
 
+#get initial cell clustering
+initial_cell_clust <- kmeans(t(train_dat), K_cells)$cluster
+# initial_cell_clust <- sample(1:K_cells, n, replace = T)
+
+previous_cell_clust <- initial_cell_clust
 
 # preallocate outputs
 out_list <- vector(mode = "list", length = K_cells)
 
 for(inner_loop in 1:K_cells){
   # get local data
-  local_dat <- train_dat[,which(initial_cell_clust == inner_loop)]
+  local_dat <- train_dat[,which(previous_cell_clust == inner_loop)]
 
   cell_data_split    <- sample(c(1,2),ncol(local_dat), replace = T)    # train 1 val 2
 
@@ -96,12 +103,11 @@ MSE <- vector(mode = "list", length = K_cells)
 names(MSE) <- paste0('Cell cluster ', 1:K_cells)
 for(i_cell_cluster in 1:K_cells){
 
-
   # Expression of all cells
   # xvals expression of regulator cells
   # yvals expression of target cells
-  xvals <- train_dat[(1:(Pt+Pr) > Pt), which(initial_cell_clust == i_cell_cluster)]
-  yvals <-  train_dat[(1:(Pt+Pr) <= Pt), which(initial_cell_clust == i_cell_cluster)]
+  xvals <- train_dat[(1:(Pt+Pr) > Pt), which(previous_cell_clust == i_cell_cluster)]
+  yvals <-  train_dat[(1:(Pt+Pr) <= Pt), which(previous_cell_clust == i_cell_cluster)]
 
   MSE_in_cell_cluster_i <- vector(mode = "list", length = K_cells)
   names(MSE_in_cell_cluster_i) <- paste0('... MSE for cell cluster ', 1:K_cells)
@@ -116,12 +122,35 @@ for(i_cell_cluster in 1:K_cells){
     }
     MSE_in_cell_cluster_i[[ii_cell_cluster]] <- MSE_in_cell_cluster_ii
   }
+  #store results in a list of size K_cells(cell clusters)
+    #of lists of K(gene clusters)
   MSE[[i_cell_cluster]] <- MSE_in_cell_cluster_i
 }
 str(MSE)
 
+#update cluster allocation to the appropriate cell cluster
+  # This can be done in some different ways,
+  # One way would be to take mean squared error for the totality of the fitted model for that cell cluster
+  # Another way would be to compare the average mse per gene cluster model
+  # here we will compare the minimal mse per gene cluster model per cell cluster.
+  # Could also use other metric than mse, e.g. r2
 
+updated_cell_clust <- previous_cell_clust + NA
 
+for(cell in 1:ncol(dat)){
+  which_cell_cluster <- previous_cell_clust[cell]#should update to "current" cell cluster
+  which_within_cluster_index <- sum(previous_cell_clust[1:(cell)] == previous_cell_clust[cell])
+  metrics <- matrix(data = NA,  nrow = K_cells, ncol = 1)
+
+  for(cell_cluster in 1:K_cells){
+    #find cluster allocation metrics
+    metrics[cell_cluster] <- min(do.call(rbind, MSE[[which_cell_cluster]][[cell_cluster]])[,which_within_cluster_index])
+  }
+  updated_cell_clust[cell] <- which.min(metrics)
+}
+
+# cross tabulation of clusters
+data.frame( table(updated_cell_clust, previous_cell_clust))
 
 # Notes -------------------------------------------------------------------
 
@@ -138,9 +167,3 @@ str(MSE)
 # sub-sub-problem;
 # each cell cluster contains several regression models, one for each target
 # gene cluster
-
-
-
-
-
-
