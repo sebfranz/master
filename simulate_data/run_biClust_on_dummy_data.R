@@ -47,6 +47,9 @@ Z_t <- rbind( dummy_res_1$Z_t, dummy_res_2$Z_t, dummy_res_3$Z_t)
 Z_r <- rbind( dummy_res_1$Z_r, dummy_res_2$Z_r, dummy_res_3$Z_r)
 dat <- rbind(t(Z_t), t(Z_r)) #columns are now cells
 
+#update parameters
+n <- ncol(dat)
+
 # Split into train and test data for cell clustering
 # Skip for now
 # cell_data_split    <- sample(c(1,2), nrow(Z_t), replace = T)
@@ -54,7 +57,10 @@ dat <- rbind(t(Z_t), t(Z_r)) #columns are now cells
 # train_dat          <- dat[,train_indices]
 
 train_dat <- dat
-initial_cell_clust <- kmeans(t(train_dat), K_cells)$cluster #get initial cell clustering
+
+#get initial cell clustering
+initial_cell_clust <- kmeans(t(train_dat), K_cells)$cluster
+# initial_cell_clust <- sample(1:K_cells, n, replace = T)
 
 
 # preallocate outputs
@@ -105,14 +111,21 @@ for(i_cell_cluster in 1:K_cells){
 
   MSE_in_cell_cluster_i <- vector(mode = "list", length = K)
   for(i_target_gene_cluster in 1:K){
+    #extract betas from the right model
     betas_for_gene_cluster_i <- out_list[[i_cell_cluster]]$results[[1]]$output[[1]]$coeffs[[i_target_gene_cluster]]
+    #find which target genes are in this gene cluster
+      #This assumes that they show up in the same order as in the input
     target_gene_ids_in_cluster_i <- which(clustering==i_target_gene_cluster)
+    #calculate mse
     MSE_in_cell_cluster_i[[i_target_gene_cluster]] <- colMeans((yvals[target_gene_ids_in_cluster_i,] - t(betas_for_gene_cluster_i) %*% xvals)**2)
   }
+  #store results in a list of size K_cells(cell clusters)
+    #of lists of K(gene clusters)
   MSE[[i_cell_cluster]] <- MSE_in_cell_cluster_i
 }
 str(MSE)
 
+#update cluster allocation to the cell cluster which minimizes MSE
 
 
 
@@ -131,9 +144,6 @@ str(MSE)
 # sub-sub-problem;
 # each cell cluster contains several regression models, one for each target
 # gene cluster
-
-
-
 
 
 
