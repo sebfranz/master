@@ -5,7 +5,7 @@
 # n <- 100   #number of cells
 # K <- 3     #Number of target gene clusters
 # regulator_mean   = 1
-# coefficient_mean = 1
+# coefficient_mean = c(1,10,100)
 
 # Binary matrix Pi --------------------------------------------------------
 # Which target gene is allocated to which cluster.
@@ -18,7 +18,7 @@ generate_dummy_data <- function(
     n  = 100,             #number of cells
     K  = 3,               #Number of target gene clusters
     regulator_mean   = 1, #mean expression of regulator genes
-    coefficient_mean = 1  #mean coefficient in true  model
+    coefficient_mean = c(1,10,100) #mean coefficients in true  model, length K
     )
 {
   diag_ <- function(vec)diag(x = vec, nrow = length(vec))
@@ -99,11 +99,14 @@ generate_dummy_data <- function(
   # in this we store the (in the manuscript only the non-zero) coefficients
   # describing how the regulator genes affect the target genes.
 
-  # For now its just one distr could be made more sophisticated
+  # Beta <- array(data = abs(rnorm( Pr * Pt * K,
+  #                                 mean = coefficient_mean, sd = 0.1)),
+  #               c(Pr,Pt,K))
 
-  Beta <- array(data = abs(rnorm( Pr * Pt * K,
-                                  mean = coefficient_mean, sd = 0.1)),
-                c(Pr,Pt,K))
+  Beta <- array(
+    data = sapply(1:K, function(i) rnorm(Pr*Pt, mean = coefficient_mean[i], sd = 0.1)),
+    dim = c(Pr,Pt,K)
+    )
 
   # Beta <- array( data = unlist(
   #   sapply(1:K, function(i) rnorm(Pr*Pt, mean = runif(1,min = 1, max = 1), sd = 0.1), simplify = F)

@@ -9,6 +9,7 @@ Pr               = 5       #number of regulator genes
 n                = 10000   #number of cells
 K                = 3       #Number of target gene clusters
 regulator_mean   = 1
+coefficient_mean = c(1,10,100)
 
 ############## preprocessing
 
