@@ -8,8 +8,8 @@ Pt               = 10      #number of target genes
 Pr               = 5       #number of regulator genes
 n                = 10000   #number of cells
 K                = 3       #Number of target gene clusters
-regulator_mean   = 1
-coefficient_mean = c(1,10,100)
+# regulator_mean   = 1
+# coefficient_mean = c(1,10,100)
 
 ############## preprocessing
 
@@ -38,11 +38,11 @@ K_cells <- 3 #number of cell clusters
 
 #generate dummy data for each cell cluster that we want
 dummy_res_1 <- generate_dummy_data(Pt, Pr, n, K,
-                                   regulator_mean, coefficient_mean = 1)
+                                   regulator_mean = 1, coefficient_mean = c(1,2,3))
 dummy_res_2 <- generate_dummy_data(Pt, Pr, n, K,
-                                   regulator_mean, coefficient_mean = 2)
+                                   regulator_mean = 2, coefficient_mean = c(1,2,3))
 dummy_res_3 <- generate_dummy_data(Pt, Pr, n, K,
-                                   regulator_mean, coefficient_mean = 3)
+                                   regulator_mean = 3, coefficient_mean = c(1,2,3))
 # Append data
 Z_t <- rbind( dummy_res_1$Z_t, dummy_res_2$Z_t, dummy_res_3$Z_t)
 Z_r <- rbind( dummy_res_1$Z_r, dummy_res_2$Z_r, dummy_res_3$Z_r)
@@ -117,9 +117,15 @@ for(i_cell_cluster in 1:K_cells){
     MSE_in_cell_cluster_ii <- vector(mode = "list", length = K)
     names(MSE_in_cell_cluster_ii) <- paste0('... MSE for target gene cluster ', 1:K_cells)
     for(i_target_gene_cluster in 1:K){
-      betas_for_gene_cluster_i <- out_list[[ii_cell_cluster]]$results[[1]]$output[[1]]$coeffs[[i_target_gene_cluster]]
       target_gene_ids_in_cluster_i <- which(clustering==i_target_gene_cluster)
-      MSE_in_cell_cluster_ii[[i_target_gene_cluster]] <- colMeans((yvals[target_gene_ids_in_cluster_i,] - t(betas_for_gene_cluster_i) %*% xvals)**2)
+        #if no target gene was assigned to this cluster we need to do something else
+      if(length(target_gene_ids_in_cluster_i) > 0) {
+        betas_for_gene_cluster_i <- out_list[[ii_cell_cluster]]$results[[1]]$output[[1]]$coeffs[[i_target_gene_cluster]]
+        MSE_in_cell_cluster_ii[[i_target_gene_cluster]] <- colMeans((yvals[target_gene_ids_in_cluster_i,] - t(betas_for_gene_cluster_i) %*% xvals)**2)
+      }else{
+        cat(paste0("no target genes in target gene cluster ",i_target_gene_cluster, " in cell cluster ", ii_cell_cluster, "\n" ))
+        MSE_in_cell_cluster_ii[[i_target_gene_cluster]] <- rep(NA,length(yvals))
+      }
     }
     MSE_in_cell_cluster_i[[ii_cell_cluster]] <- MSE_in_cell_cluster_ii
   }
