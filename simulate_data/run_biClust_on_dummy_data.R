@@ -4,23 +4,25 @@ source(paste0(execution_path,"/dummy_data.R"))
 library(scregclust)
 # set.seed(12411)
 
-Pt               = 10      #number of target genes
-Pr               = 5       #number of regulator genes
-n                = 10000   #number of cells
-K                = 3       #Number of target gene clusters
-# regulator_mean   = 1
-# coefficient_mean = c(1,10,100)
-
+n_cell_clusters <- 3
+n_target_gene_clusters <- c(3,4,5)  # Number of target gene clusters in each cell cluster
+n_target_genes <- 20
+n_regulator_genes <- 15
+n_cells <- c(1000,5000,10000)
+regulator_means = c(1,2,3)  # For generating dummy data, regulator mean in each cell cluster
+coefficient_means = list(c(1,2,3), c(1,2,3,4), c(1,2,3,4,5))  # For generating dummy data, coefficient means in each cell cluster
+true_cluster_allocation = rep(1:n_cell_clusters, times=n_cells)
+total_n_cells = sum(n_cells)
 ############## preprocessing
 
 # train/validation split of CELLS
-  # initialize with kmeans for all cells
-  # set train val split within cell clusters so cells start in same cell cluster
+# initialize with kmeans for all cells
+# set train val split within cell clusters so cells start in same cell cluster
 
 ############### Outer loop
 
 # check cell clustering fit
-  # adjusted r2?
+# adjusted r2?
 # Check how well cells fit into any cell clusters, possibly update cell cluster membership
 
 ############### inner loop
@@ -34,22 +36,27 @@ K                = 3       #Number of target gene clusters
 # 3 for each cluster run scregclust
 # 4 evaluate etc
 
-K_cells <- 3 #number of cell clusters
+# Generate dummy data for each cell cluster that we want
+dummy_data <- vector(mode = "list", length = n_cell_clusters)
+for(i_cluster in 1:n_cell_clusters){
+  dummy_data[[i_cluster]] <- generate_dummy_data(n_target_genes,
+                                                 n_regulator_genes,
+                                                 n_cells = n_cells[i_cluster],
+                                                 n_target_gene_clusters[i_cluster],
+                                                 regulator_mean = regulator_means[i_cluster],
+                                                 coefficient_mean = coefficient_means[[i_cluster]])
+}
 
-#generate dummy data for each cell cluster that we want
-dummy_res_1 <- generate_dummy_data(Pt, Pr, n, K,
-                                   regulator_mean = 1, coefficient_mean = c(1,2,3))
-dummy_res_2 <- generate_dummy_data(Pt, Pr, n, K,
-                                   regulator_mean = 2, coefficient_mean = c(1,2,3))
-dummy_res_3 <- generate_dummy_data(Pt, Pr, n, K,
-                                   regulator_mean = 3, coefficient_mean = c(1,2,3))
-# Append data
-Z_t <- rbind( dummy_res_1$Z_t, dummy_res_2$Z_t, dummy_res_3$Z_t)
-Z_r <- rbind( dummy_res_1$Z_r, dummy_res_2$Z_r, dummy_res_3$Z_r)
-dat <- rbind(t(Z_t), t(Z_r)) #columns are now cells
-
-#update parameters
-n <- ncol(dat)
+# Create Z_r and Z_t from dummy data
+Z_t <- dummy_data[[1]]$Z_t
+Z_r <- dummy_data[[1]]$Z_r
+if (n_cell_clusters>1){
+  for(i_cluster in 2:n_cell_clusters){
+    Z_t <- rbind(Z_t, dummy_data[[i_cluster]]$Z_t)
+    Z_r <- rbind(Z_r, dummy_data[[i_cluster]]$Z_r)
+  }
+}
+dat <- rbind(t(Z_t), t(Z_r)) # Columns are now cells
 
 # Split into train and test data for cell clustering
 # Skip for now
@@ -59,37 +66,38 @@ n <- ncol(dat)
 
 train_dat <- dat
 
-#get initial cell clustering
-initial_cell_clust <- kmeans(t(train_dat), K_cells)$cluster
-# initial_cell_clust <- sample(1:K_cells, n, replace = T)
+# Get initial cell clustering
+initial_cell_clust <- kmeans(t(train_dat), n_cell_clusters)$cluster
+# initial_cell_clust <- sample(1:n_cell_clusters, n_cells, replace = T)
 
 previous_cell_clust <- initial_cell_clust
 
-# preallocate outputs
-out_list <- vector(mode = "list", length = K_cells)
+# Preallocate outputs
+out_list <- vector(mode = "list", length = n_cell_clusters)
 
-for(inner_loop in 1:K_cells){
-  # get local data
-  local_dat <- train_dat[,which(previous_cell_clust == inner_loop)]
+for(i_cluster in 1:n_cell_clusters){
+  # Get data for cell cluster i_cluster specifically
+  local_dat <- train_dat[,which(previous_cell_clust == i_cluster)]
 
-  cell_data_split    <- sample(c(1,2),ncol(local_dat), replace = T)    # train 1 val 2
+  # Training data are represented by 1 and test data by 2
+  cell_data_split    <- sample(c(1,2),ncol(local_dat), replace = T)
 
-  gene_cluster_start <- kmeans(local_dat[1:Pt,], K)$cluster        # initial target gene clustering
+  # Initial target gene clustering
+  gene_cluster_start <- kmeans(local_dat[1:n_target_genes,], n_target_gene_clusters[i_cluster])$cluster
 
-  #run scregclust
+  # Run scregclust
   scregclust(
-    expression             = local_dat,               #scRegClust wants this form
-    split_indices          = cell_data_split,         #train data split
-    genesymbols            = paste0('g', 1:(Pt+Pr)),  #gene row names
-    is_regulator           = (1:(Pt+Pr) > Pt) + 0,    #vector indicating which genes are regulators
-    n_cl                   = K,
+    expression             = local_dat,               # scRegClust wants this form
+    split_indices          = cell_data_split,         # Train data split
+    genesymbols            = paste0('g', 1:(n_target_genes+n_regulator_genes)),  #gene row names
+    is_regulator           = (1:(n_target_genes+n_regulator_genes) > n_target_genes) + 0,    #vector indicating which genes are regulators
+    n_cl                   = n_target_gene_clusters[i_cluster],
     target_cluster_start   = gene_cluster_start,
-    penalization           = Pr
-    #maximal number of regulators for one cluster
-  ) -> out_list[[inner_loop]]
+    penalization           = n_regulator_genes  # Maximal number of regulators for one cluster
+  ) -> out_list[[i_cluster]]
 }
 
-# which target genes belong to which cluster>
+# Which target genes belong to which cluster>
 str(out_list[[1]]$results[[1]])
 str(out_list[[1]]$results[[1]]$output[[1]])
 
@@ -99,57 +107,105 @@ str(out_list[[1]]$results[[1]]$output[[1]])
 
 # Calculate MSE for per cells per cell cluster,
 # for all target gene clusters in those cell clusters
+# Missing clusters are rows with NA
+# matrix of cell cluster 1's target genes, then cell cluster 2's target genes - etc. In order. Columns are cells matching previous_cell_clust
+# Example output
+# > str(MSE)
+# num [1:12, 1:16000] 68.9 124.1 11.9 66.6 119.9 ...
 
-MSE <- vector(mode = "list", length = K_cells)
-names(MSE) <- paste0('Cell cluster ', 1:K_cells)
-for(i_cell_cluster in 1:K_cells){
 
+MSE <- matrix(nrow=sum(n_target_gene_clusters), ncol=total_n_cells)
+for(i_cell_cluster in 1:n_cell_clusters){
   # Expression of all cells
   # xvals expression of regulator cells
   # yvals expression of target cells
-  xvals <- train_dat[(1:(Pt+Pr) > Pt), which(previous_cell_clust == i_cell_cluster)]
-  yvals <-  train_dat[(1:(Pt+Pr) <= Pt), which(previous_cell_clust == i_cell_cluster)]
-
-  MSE_in_cell_cluster_i <- vector(mode = "list", length = K_cells)
-  names(MSE_in_cell_cluster_i) <- paste0('... MSE for cell cluster ', 1:K_cells)
-  for(ii_cell_cluster in 1:K_cells){
-    clustering <- out_list[[ii_cell_cluster]]$results[[1]]$output[[1]]$cluster[1:Pt]
-    MSE_in_cell_cluster_ii <- vector(mode = "list", length = K)
-    names(MSE_in_cell_cluster_ii) <- paste0('... MSE for target gene cluster ', 1:K_cells)
-    for(i_target_gene_cluster in 1:K){
+  xvals <- train_dat[(1:(n_target_genes+n_regulator_genes) > n_target_genes), which(previous_cell_clust == i_cell_cluster)]
+  yvals <-  train_dat[(1:(n_target_genes+n_regulator_genes) <= n_target_genes), which(previous_cell_clust == i_cell_cluster)]
+  i_total_target_geneclusters <- 0
+  for(ii_cell_cluster in 1:n_cell_clusters){
+    clustering <- out_list[[ii_cell_cluster]]$results[[1]]$output[[1]]$cluster[1:n_target_genes]
+    for(i_target_gene_cluster in 1:n_target_gene_clusters[[ii_cell_cluster]]){
+      i_total_target_geneclusters <- i_total_target_geneclusters + 1
       target_gene_ids_in_cluster_i <- which(clustering==i_target_gene_cluster)
-        #if no target gene was assigned to this cluster we need to do something else
-      if(length(target_gene_ids_in_cluster_i) > 0) {
-        betas_for_gene_cluster_i <- out_list[[ii_cell_cluster]]$results[[1]]$output[[1]]$coeffs[[i_target_gene_cluster]]
-        MSE_in_cell_cluster_ii[[i_target_gene_cluster]] <- colMeans((yvals[target_gene_ids_in_cluster_i,] - t(betas_for_gene_cluster_i) %*% xvals)**2)
-      }else{
-        cat(paste0("no target genes in target gene cluster ",i_target_gene_cluster, " in cell cluster ", ii_cell_cluster, "\n" ))
-        MSE_in_cell_cluster_ii[[i_target_gene_cluster]] <- rep(NA,length(yvals))
+      betas_for_gene_cluster_i <- out_list[[ii_cell_cluster]]$results[[1]]$output[[1]]$coeffs[[i_target_gene_cluster]]
+      # If no target gene was assigned to this cluster we need to do something else
+      if(!is.null(betas_for_gene_cluster_i)) {
+        MSE[i_total_target_geneclusters, previous_cell_clust == i_cell_cluster] <- colMeans((yvals[target_gene_ids_in_cluster_i,] - t(betas_for_gene_cluster_i) %*% xvals)**2)
       }
     }
-    MSE_in_cell_cluster_i[[ii_cell_cluster]] <- MSE_in_cell_cluster_ii
   }
-  #store results in a list of size K_cells(cell clusters)
-    #of lists of K(gene clusters)
-  MSE[[i_cell_cluster]] <- MSE_in_cell_cluster_i
 }
 str(MSE)
 
-#update cluster allocation to the appropriate cell cluster
-  # This can be done in some different ways,
-  # One way would be to take mean squared error for the totality of the fitted model for that cell cluster
-  # Another way would be to compare the average mse per gene cluster model
-  # here we will compare the minimal mse per gene cluster model per cell cluster.
-  # Could also use other metric than mse, e.g. r2
+
+# # Update the actual number of target gene clusters in each cell cluster
+# n_target_gene_clusters_updated <- n_target_gene_clusters
+# for(i_cell_cluster in 1:n_cell_clusters){
+#   # This checks if each target gene clusters coeffs are numeric, if not, they are NULL.
+#   # Then we just count those numeric ones.
+#   n_target_gene_clusters_updated[i_cluster] <- sum(sapply(out_list[[2]]$results[[1]]$output[[1]]$coeffs, is.numeric))
+# }
+
+
+
+
+# Old MSE ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+# MSE <- vector(mode = "list", length = n_cell_clusters)
+# names(MSE) <- paste0('Cell cluster ', 1:n_cell_clusters)
+# for(i_cell_cluster in 1:n_cell_clusters){
+#
+#   # Expression of all cells
+#   # xvals expression of regulator cells
+#   # yvals expression of target cells
+#   xvals <- train_dat[(1:(n_target_genes+n_regulator_genes) > n_target_genes), which(previous_cell_clust == i_cell_cluster)]
+#   yvals <-  train_dat[(1:(n_target_genes+n_regulator_genes) <= n_target_genes), which(previous_cell_clust == i_cell_cluster)]
+#
+#   MSE_in_cell_cluster_i <- vector(mode = "list", length = n_cell_clusters)
+#   for(ii_cell_cluster in 1:n_cell_clusters){
+#     clustering <- out_list[[ii_cell_cluster]]$results[[1]]$output[[1]]$cluster[1:n_target_genes]
+#     MSE_in_cell_cluster_ii <- vector(mode = "list", length = n_target_gene_clusters[[ii_cell_cluster]])
+#
+#     for(i_target_gene_cluster in 1:n_target_gene_clusters[[ii_cell_cluster]]){
+#       target_gene_ids_in_cluster_i <- which(clustering==i_target_gene_cluster)
+#
+#       betas_for_gene_cluster_i <- out_list[[ii_cell_cluster]]$results[[1]]$output[[1]]$coeffs[[i_target_gene_cluster]]
+#       # If no target gene was assigned to this cluster we need to do something else
+#       if(!is.null(betas_for_gene_cluster_i)) {
+#         MSE_in_cell_cluster_ii[[i_target_gene_cluster]] <- colMeans((yvals[target_gene_ids_in_cluster_i,] - t(betas_for_gene_cluster_i) %*% xvals)**2)
+#       }else{
+#         print(paste0("Cluster doesn't exist ", i_target_gene_cluster, " in cell cluster ", ii_cell_cluster))
+#       }
+#     }
+#     names(MSE_in_cell_cluster_ii) <- paste0('... MSE for target gene cluster ', 1:n_target_gene_clusters[[ii_cell_cluster]])
+#     MSE_in_cell_cluster_i[[ii_cell_cluster]] <- MSE_in_cell_cluster_ii
+#   }
+#   names(MSE_in_cell_cluster_i) <- paste0('... MSE for cell cluster ', 1:n_cell_clusters)
+#   # Store results in a list of size n_cell_clusters(cell clusters)
+#   # of lists of n_target_gene_clusters(gene clusters)
+#   MSE[[i_cell_cluster]] <- MSE_in_cell_cluster_i
+# }
+# str(MSE)
+
+
+
+# Add each cell cluster after eachother
+
+# Update cluster allocation to the appropriate cell cluster
+# This can be done in some different ways,
+# One way would be to take mean squared error for the totality of the fitted model for that cell cluster
+# Another way would be to compare the average mse per gene cluster model
+# here we will compare the minimal mse per gene cluster model per cell cluster.
+# Could also use other metric than mse, e.g. r2
 
 # updated_cell_clust <- previous_cell_clust + NA
-# metrics <- matrix(data = NA,  nrow = K_cells, ncol = ncol(dat))
+# metrics <- matrix(data = NA,  nrow = n_cell_clusters, ncol = ncol(dat))
 #
 # for(cell in 1:ncol(dat)){
 #   which_cell_cluster <- previous_cell_clust[cell]#should update to "current" cell cluster
 #   which_within_cluster_index <- sum(previous_cell_clust[1:(cell)] == which_cell_cluster)
 #
-#   # for(cell_cluster in 1:K_cells){
+#   # for(cell_cluster in 1:n_cell_clusters){
 #   #   #find cluster allocation metrics
 #   #   metrics[cell_cluster,cell] <- min(do.call(rbind, MSE[[which_cell_cluster]][[cell_cluster]])[,which_within_cluster_index], na.rm = T)
 #   # }
@@ -157,27 +213,48 @@ str(MSE)
 #   # updated_cell_clust[cell] <- which.min(metrics[,cell])
 #   which.min(
 #     sapply(
-#       1:K_cells, function(j) min(sapply(1: K_cells, function(i) MSE[[which_cell_cluster]][[j]][[i]][which_within_cluster_index]), na.rm = T)
+#       1:n_cell_clusters, function(j) min(sapply(1: n_cell_clusters, function(i) MSE[[which_cell_cluster]][[j]][[i]][which_within_cluster_index]), na.rm = T)
 #     )
 #   ) -> updated_cell_clust[cell]
 #
 # }
 # updated_cell_clust <- sapply(1:ncol(dat), function(i) which.min(metrics[,i]))
-sapply(
-  1:ncol(dat),
-  function(cell) {
-    which_cell_cluster <- previous_cell_clust[cell]
-    which_within_cluster_index <- sum(previous_cell_clust[1:(cell)] == previous_cell_clust[cell])
-    which.min(
-      sapply(
-        1:K_cells, function(j) min(sapply(1: K_cells, function(i) MSE[[which_cell_cluster]][[j]][[i]][which_within_cluster_index]), na.rm = T)
-      )
-    )
-  }
-) -> updated_cell_clust
+# sapply(
+#   1:ncol(dat),
+#   function(cell) {
+#     which_cell_cluster <- previous_cell_clust[cell]
+#     which_within_cluster_index <- sum(previous_cell_clust[1:(cell)] == previous_cell_clust[cell])
+#     which.min(
+#       sapply(
+#         1:n_cell_clusters, function(j) min(sapply(1: n_cell_clusters, function(i) MSE[[which_cell_cluster]][[j]][[i]][which_within_cluster_index]), na.rm = T)
+#       )
+#     )
+#   }
+# ) -> updated_cell_clust
+#
+# # cross tabulation of clusters
+# data.frame( table(updated_cell_clust, previous_cell_clust))
 
-# cross tabulation of clusters
-data.frame( table(updated_cell_clust, previous_cell_clust))
+
+for(i_cell_cluster in 1:n_cell_clusters){
+  updated_cell_clust <- rep(1:n_cell_clusters, n_target_gene_clusters)[apply(MSE, 2, which.min)]
+}
+
+# sapply(
+#   1:ncol(dat),
+#   function(cell) {
+#     which_cell_cluster <- previous_cell_clust[cell]
+#     which_within_cluster_index <- sum(previous_cell_clust[1:(cell)] == previous_cell_clust[cell])
+#     which.min(
+#       sapply(
+#         1:n_cell_clusters, function(j) min(sapply(1: n_cell_clusters, function(i) MSE[[which_cell_cluster]][[j]][[i]][which_within_cluster_index]), na.rm = T)
+#       )
+#     )
+#   }
+# ) -> updated_cell_clust
+
+# Cross tabulation of clusters
+data.frame(table(updated_cell_clust, previous_cell_clust))
 
 # Notes -------------------------------------------------------------------
 
