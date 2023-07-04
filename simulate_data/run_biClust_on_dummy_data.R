@@ -2,7 +2,7 @@ rm(list = ls())
 execution_path <- dirname(rstudioapi::getSourceEditorContext()$path)
 source(paste0(execution_path,"/dummy_data.R"))
 library(scregclust)
-set.seed(12411)
+# set.seed(12411)
 
 Pt               = 10      #number of target genes
 Pr               = 5       #number of regulator genes
@@ -142,24 +142,47 @@ str(MSE)
   # here we will compare the minimal mse per gene cluster model per cell cluster.
   # Could also use other metric than mse, e.g. r2
 
-updated_cell_clust <- previous_cell_clust + NA
-
-for(cell in 1:ncol(dat)){
-  which_cell_cluster <- previous_cell_clust[cell]#should update to "current" cell cluster
-  which_within_cluster_index <- sum(previous_cell_clust[1:(cell)] == previous_cell_clust[cell])
-  metrics <- matrix(data = NA,  nrow = K_cells, ncol = 1)
-
-  for(cell_cluster in 1:K_cells){
-    #find cluster allocation metrics
-    metrics[cell_cluster] <- min(do.call(rbind, MSE[[which_cell_cluster]][[cell_cluster]])[,which_within_cluster_index])
+# updated_cell_clust <- previous_cell_clust + NA
+# metrics <- matrix(data = NA,  nrow = K_cells, ncol = ncol(dat))
+#
+# for(cell in 1:ncol(dat)){
+#   which_cell_cluster <- previous_cell_clust[cell]#should update to "current" cell cluster
+#   which_within_cluster_index <- sum(previous_cell_clust[1:(cell)] == which_cell_cluster)
+#
+#   # for(cell_cluster in 1:K_cells){
+#   #   #find cluster allocation metrics
+#   #   metrics[cell_cluster,cell] <- min(do.call(rbind, MSE[[which_cell_cluster]][[cell_cluster]])[,which_within_cluster_index], na.rm = T)
+#   # }
+#
+#   # updated_cell_clust[cell] <- which.min(metrics[,cell])
+#   which.min(
+#     sapply(
+#       1:K_cells, function(j) min(sapply(1: K_cells, function(i) MSE[[which_cell_cluster]][[j]][[i]][which_within_cluster_index]), na.rm = T)
+#     )
+#   ) -> updated_cell_clust[cell]
+#
+# }
+# updated_cell_clust <- sapply(1:ncol(dat), function(i) which.min(metrics[,i]))
+sapply(
+  1:ncol(dat),
+  function(cell) {
+    which_cell_cluster <- previous_cell_clust[cell]
+    which_within_cluster_index <- sum(previous_cell_clust[1:(cell)] == previous_cell_clust[cell])
+    which.min(
+      sapply(
+        1:K_cells, function(j) min(sapply(1: K_cells, function(i) MSE[[which_cell_cluster]][[j]][[i]][which_within_cluster_index]), na.rm = T)
+      )
+    )
   }
-  updated_cell_clust[cell] <- which.min(metrics)
-}
+) -> updated_cell_clust
 
 # cross tabulation of clusters
 data.frame( table(updated_cell_clust, previous_cell_clust))
 
 # Notes -------------------------------------------------------------------
+
+
+
 
 
 #now we arrive at the question, how do we update cell clusters given all this new information about the gene cluster structure within each previous cell cluster.
@@ -174,3 +197,8 @@ data.frame( table(updated_cell_clust, previous_cell_clust))
 # sub-sub-problem;
 # each cell cluster contains several regression models, one for each target
 # gene cluster
+
+
+
+min(do.call(rbind, MSE[[which_cell_cluster]][[cell_cluster]][,which_within_cluster_index]), na.rm = T)
+
