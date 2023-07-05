@@ -189,9 +189,10 @@ str(MSE)
 
 
 
-# Add each cell cluster after eachother
 
-# Update cluster allocation to the appropriate cell cluster
+# Update cluster allocation to the appropriate cell cluster -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
 # This can be done in some different ways,
 # One way would be to take mean squared error for the totality of the fitted model for that cell cluster
 # Another way would be to compare the average mse per gene cluster model
@@ -236,9 +237,8 @@ str(MSE)
 # data.frame( table(updated_cell_clust, previous_cell_clust))
 
 
-for(i_cell_cluster in 1:n_cell_clusters){
-  updated_cell_clust <- rep(1:n_cell_clusters, n_target_gene_clusters)[apply(MSE, 2, which.min)]
-}
+updated_cell_clust <- rep(1:n_cell_clusters, n_target_gene_clusters)[apply(MSE, 2, which.min)]
+
 
 # sapply(
 #   1:ncol(dat),
