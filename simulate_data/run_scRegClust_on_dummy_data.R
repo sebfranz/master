@@ -7,8 +7,8 @@ Pt = 10      #number of target genes
 Pr = 5       #number of regulator genes
 n  = 10000   #number of cells
 K  = 3       #Number of target gene clusters
-regulator_mean   = 1
-coefficient_mean = 3
+# regulator_mean   = 1
+# coefficient_mean = c(1,10,100)
 
 #generate dummy data for each cell cluster that we want
 dummy_res <- generate_dummy_data(Pt, Pr, n, K, regulator_mean, coefficient_mean)
@@ -33,8 +33,8 @@ scregclust(
 )-> scRegOut
 
 scRegOut$results
-Pi
-R
+rowSums(Pi)
+rowSums(R)
 plot(scRegOut)$data
 
 
