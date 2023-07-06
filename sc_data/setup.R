@@ -17,27 +17,42 @@ setwd(paste0(execution_path, '/../../datasets_sctargettranslator'))
 #make things prettier
 
 ## Neftel 10X ##
-setwd(paste0(execution_path, '/../../datasets_sctargettranslator/Neftel2019'))
+path <- paste0(execution_path, '/../../datasets_sctargettranslator/Neftel2019')
+setwd(path)
 
 library(Matrix)
-mn<-readMM(file='./Group1/Exp_data_UMIcounts_10X.mtx')
-mn<-as.matrix(mn)
+if(!'neftel_mn_group1' %in% list.files(paste0(path,'/r_files/'))){
+  mn<-readMM(file='./Group1/Exp_data_UMIcounts_10X.mtx')
+  mn<-as.matrix(mn)
 
-cells<-read.table(file='./Group1/Cells_10X.txt',sep=' ',header=TRUE,stringsAsFactors = FALSE)
-genes<-read.table(file='./Group1/Genes_10X.txt',sep='\t', header=FALSE,stringsAsFactors = FALSE)
-genes<-genes[,1]
+  cells<-read.table(file='./Group1/Cells_10X.txt',sep=' ',header=TRUE,stringsAsFactors = FALSE)
+  genes<-read.table(file='./Group1/Genes_10X.txt',sep='\t', header=FALSE,stringsAsFactors = FALSE)
+  genes<-genes[,1]
 
-rownames(cells)<-cells[,1]
+  rownames(cells)<-cells[,1]
 
-rownames(mn)<-genes
-colnames(mn)<-cells$cell_name
+  rownames(mn)<-genes
+  colnames(mn)<-cells$cell_name
+
+  saveRDS(mn, file = paste0(path, '/r_files/', "neftel_mn_group1"))
+}else{
+  mn <- readRDS(file = paste0(path, '/r_files/', "neftel_mn_group1"))
+}
+
 
 library('Seurat')
-Neftel <- CreateSeuratObject(mn,min.cells = 3,min.features =500,meta.data = cells)
-Neftel <- SCTransform(Neftel)
+if(!'neftel_seurat_group1' %in% list.files(paste0(path,'/r_files/'))){
+  Neftel <- CreateSeuratObject(mn,min.cells = 3,min.features =500,meta.data = cells)
+  Neftel <- SCTransform(Neftel)
 
-Neftel <- RunPCA(Neftel, verbose = FALSE)
-Neftel <- RunUMAP(Neftel, dims = 1:30, verbose = FALSE)
+  Neftel <- RunPCA(Neftel, verbose = FALSE)
+  Neftel <- RunUMAP(Neftel, dims = 1:30, verbose = FALSE)
+
+  saveRDS(Neftel, file = paste0(path, '/r_files/', "neftel_seurat_group1"))
+}else{
+  Neftel <- readRDS(file = paste0(path, '/r_files/', "neftel_seurat_group1"))
+}
+
 
 p1 <- DimPlot(Neftel,reduction = "umap",group.by='malignant')
 p1
@@ -48,8 +63,9 @@ Neftel_malignant<-subset(Neftel, idents='yes')
 z<-GetAssayData(Neftel_malignant,slot='scale.data')
 metaData<-Neftel_malignant@meta.data$sample
 
-setwd('/Users/idala384/Desktop/scEM_package/scripts/')
-devtools::load_all()
+# setwd('/Users/idala384/Desktop/scEM_package/scripts/')
+# devtools::load_all()
+library(scregclust)
 
 out<-scregclust_format(z)
 
@@ -62,31 +78,62 @@ for (i in 1:length(unique(metaData))){
   sample_assignment[ix]<-i
 }
 
-fit <- scregclust(
-  z, genesymbols, is_predictor,
-  k_start = 10L, lambda = 0.05, total_proportion = 0.5,
-  n_cycles = 50L, noise_threshold = 0.05, min_cluster_size = 50,
-  sample_assignment = sample_assignment
-)
+if(!'neftel_scregfit_group1' %in% list.files(paste0(path,'/r_files/'))){
+  fit <- scregclust(
+    z,
+    genesymbols,
+    is_predictor,
+    n_cl = 10L,
+    penalization = 0.05,
+    total_proportion = 0.5,
+    n_cycles = 50L,
+    noise_threshold = 0.05,
+    min_cluster_size = 50,
+    sample_assignment = sample_assignment
+  )
 
-plotRegNet(fit)
+  saveRDS(fit, file = paste0(path, '/r_files/', "neftel_scregfit_group1"))
+} else {
+  fit <- readRDS(file = paste0(path, '/r_files/', "neftel_scregfit_group1"))
+}
+# library(regnet)
+# plotRegNet(fit)
 
 ## Neftel SmartSeq2 ##
-setwd('/Users/idala384/Desktop/Neftel2019')
 
-cells<-read.table(file='./Group2/cells.txt',sep=' ',header=TRUE,stringsAsFactors = FALSE)
-rownames(cells)<-cells[,1]
+library(Matrix)
+if(!'neftel_mn_group2' %in% list.files(paste0(path,'/r_files/'))){
+  mn<-readMM(file='./Group2/exp_data_TPM.mtx')
+  mn<-as.matrix(mn)
 
-mn<-readMM(file='./exp_data_TPM.mtx')
-mn<-as.matrix(mn)
+  cells<-read.table(file='./Group2/Cells.txt',sep=' ',header=TRUE,stringsAsFactors = FALSE)
+  genes<-read.table(file='./Group2/Genes.txt',sep='\t', header=FALSE,stringsAsFactors = FALSE)
+  genes<-genes[,1]
 
-Neftel<-CreateSeuratObject(mn,min.cells = 3,min.features =500,meta.data=cells)
+  rownames(cells)<-cells[,1]
 
-Neftel<-ScaleData(Neftel, do.scale=FALSE, do.center=FALSE)
-Neftel<-FindVariableFeatures(Neftel)
+  rownames(mn)<-genes
+  colnames(mn)<-cells$cell_name
 
-Neftel <- RunPCA(Neftel, npcs = 30, verbose = FALSE)
-Neftel <- RunUMAP(Neftel, reduction = "pca", dims = 1:30)
+  saveRDS(mn, file = paste0(path, '/r_files/', "neftel_mn_group2"))
+}else{
+  mn <- readRDS(file = paste0(path, '/r_files/', "neftel_mn_group2"))
+}
+
+library('Seurat')
+if(!'neftel_seurat_group2' %in% list.files(paste0(path,'/r_files/'))){
+  Neftel<-CreateSeuratObject(mn,min.cells = 3,min.features =500,meta.data=cells)
+
+  Neftel<-ScaleData(Neftel, do.scale=FALSE, do.center=FALSE)
+  Neftel<-FindVariableFeatures(Neftel)
+
+  Neftel <- RunPCA(Neftel, npcs = 30, verbose = FALSE)
+  Neftel <- RunUMAP(Neftel, reduction = "pca", dims = 1:30)
+
+  saveRDS(Neftel, file = paste0(path, '/r_files/', "neftel_seurat_group2"))
+}else{
+  Neftel <- readRDS(file = paste0(path, '/r_files/', "neftel_seurat_group2"))
+}
 
 p1 <- DimPlot(Neftel, reduction = "umap", group.by = "malignant")
 p1
@@ -100,25 +147,29 @@ Neftel_malignant <- Neftel_malignant[,!colnames(Neftel_malignant) %in% colnames(
 z<-GetAssayData(Neftel_malignant,slot='scale.data')
 metaData<-Neftel_malignant@meta.data$sample
 
-setwd('/Users/idala384/Desktop/scEM_package/scripts/')
-devtools::load_all()
-
 out<-scregclust_format(z)
 
 genesymbols<-out[[1]]
 sample_assignment<-out[[2]]
 is_predictor<-out[[3]]
 
-for (i in 1:length(unique(metaData))){
-  ix<-which(metaData==unique(metaData)[i])
-  sample_assignment[ix]<-i
+if(!'neftel_scregfit_group2' %in% list.files(paste0(path,'/r_files/'))){
+  fit <- scregclust(
+    z,
+    genesymbols,
+    is_predictor,
+    n_cl = 10L,
+    penalization = 0.03,
+    total_proportion = 0.5,
+    n_cycles = 50L,
+    noise_threshold = 0.05,
+    min_cluster_size = 20,
+    sample_assignment = sample_assignment
+  )
+
+  saveRDS(fit, file = paste0(path, '/r_files/', "neftel_scregfit_group2"))
+} else {
+  fit <- readRDS(file = paste0(path, '/r_files/', "neftel_scregfit_group2"))
 }
-
-fit <- scregclust(
-  z, genesymbols, is_predictor,
-  k_start = 10L, lambda = 0.03, total_proportion = 0.5,
-  n_cycles = 50L, noise_threshold = 0.05, min_cluster_size = 20,
-  sample_assignment = sample_assignment
-)
-
-plotRegNet(fit)
+# library(regnet)
+# plotRegNet(fit)
