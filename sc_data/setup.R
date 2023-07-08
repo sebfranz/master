@@ -1,17 +1,18 @@
 
 execution_path <- dirname(rstudioapi::getSourceEditorContext()$path)
 
+#This script requires that you have downloaded the neftel2019 dataset and
+# added it to ~\repos\datasets_sctargettranslator\Neftel2019
+
 if( !'datasets_sctargettranslator' %in% list.files(paste0(execution_path, '/../../'))){
   #create folder and put data there
   dir.create((paste0(execution_path, '/../../datasets_sctargettranslator')) )
 }
 
 setwd(paste0(execution_path, '/../../datasets_sctargettranslator'))
-# download data
+# todo: download data automatically from the box
 # download.file('https://uppsala.box.com/s/aqf3fyeb43i5jy8v4s527u0l262virue',
 #               'C:/Users/Filip/repos/master/sc_data/test' )
-
-
 
 
 #make things prettier
@@ -152,24 +153,31 @@ out<-scregclust_format(z)
 genesymbols<-out[[1]]
 sample_assignment<-out[[2]]
 is_predictor<-out[[3]]
-
-if(!'neftel_scregfit_group2' %in% list.files(paste0(path,'/r_files/'))){
-  fit <- scregclust(
-    z,
-    genesymbols,
-    is_predictor,
-    n_cl = 10L,
-    penalization = 0.03,
-    total_proportion = 0.5,
-    n_cycles = 50L,
-    noise_threshold = 0.05,
-    min_cluster_size = 20,
-    sample_assignment = sample_assignment
-  )
-
-  saveRDS(fit, file = paste0(path, '/r_files/', "neftel_scregfit_group2"))
-} else {
-  fit <- readRDS(file = paste0(path, '/r_files/', "neftel_scregfit_group2"))
-}
+# skip this for now, it gives errors and is probably notn ecessary for our purposes
+# # this gives:
+# # Error in solve.default(xtx, xty) : ──────────────| 1/10 clusters
+# # Lapack routine dgesv: system is exactly singular: U[1596,1596] = 0
+# # In addition: Warning messages:
+# #   1: Quick-TRANSfer stage steps exceeded maximum (= 990350)
+# # 2: Quick-TRANSfer stage steps exceeded maximum (= 990350)
+#
+# if(!'neftel_scregfit_group2' %in% list.files(paste0(path,'/r_files/'))){
+#   fit <- scregclust(
+#     z,
+#     genesymbols,
+#     is_predictor,
+#     n_cl = 10L,
+#     penalization = 0.03,
+#     total_proportion = 0.5,
+#     n_cycles = 50L,
+#     noise_threshold = 0.05,
+#     min_cluster_size = 20,
+#     sample_assignment = sample_assignment
+#   )
+#
+#   saveRDS(fit, file = paste0(path, '/r_files/', "neftel_scregfit_group2"))
+# } else {
+#   fit <- readRDS(file = paste0(path, '/r_files/', "neftel_scregfit_group2"))
+# }
 # library(regnet)
 # plotRegNet(fit)
