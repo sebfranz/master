@@ -23,8 +23,8 @@ setwd(path)
 
 library(Matrix)
 if(!'neftel_mn_group1' %in% list.files(paste0(path,'/r_files/'))){
-  mn<-readMM(file='./Group1/Exp_data_UMIcounts_10X.mtx')
-  mn<-as.matrix(mn)
+  mn_g1<-readMM(file='./Group1/Exp_data_UMIcounts_10X.mtx')
+  mn_g1<-as.matrix(mn_g1)
 
   cells<-read.table(file='./Group1/Cells_10X.txt',sep=' ',header=TRUE,stringsAsFactors = FALSE)
   genes<-read.table(file='./Group1/Genes_10X.txt',sep='\t', header=FALSE,stringsAsFactors = FALSE)
@@ -32,43 +32,43 @@ if(!'neftel_mn_group1' %in% list.files(paste0(path,'/r_files/'))){
 
   rownames(cells)<-cells[,1]
 
-  rownames(mn)<-genes
-  colnames(mn)<-cells$cell_name
+  rownames(mn_g1)<-genes
+  colnames(mn_g1)<-cells$cell_name
 
-  saveRDS(mn, file = paste0(path, '/r_files/', "neftel_mn_group1"))
+  saveRDS(mn_g1, file = paste0(path, '/r_files/', "neftel_mn_group1"))
 }else{
-  mn <- readRDS(file = paste0(path, '/r_files/', "neftel_mn_group1"))
+  mn_g1 <- readRDS(file = paste0(path, '/r_files/', "neftel_mn_group1"))
 }
 
 
 library('Seurat')
 if(!'neftel_seurat_group1' %in% list.files(paste0(path,'/r_files/'))){
-  Neftel <- CreateSeuratObject(mn,min.cells = 3,min.features =500,meta.data = cells)
-  Neftel <- SCTransform(Neftel)
+  Neftel_g1 <- CreateSeuratObject(mn,min.cells = 3,min.features =500,meta.data = cells)
+  Neftel_g1 <- SCTransform(Neftel)
 
-  Neftel <- RunPCA(Neftel, verbose = FALSE)
-  Neftel <- RunUMAP(Neftel, dims = 1:30, verbose = FALSE)
+  Neftel_g1 <- RunPCA(Neftel, verbose = FALSE)
+  Neftel_g1 <- RunUMAP(Neftel, dims = 1:30, verbose = FALSE)
 
-  saveRDS(Neftel, file = paste0(path, '/r_files/', "neftel_seurat_group1"))
+  saveRDS(Neftel_g1, file = paste0(path, '/r_files/', "neftel_seurat_group1"))
 }else{
-  Neftel <- readRDS(file = paste0(path, '/r_files/', "neftel_seurat_group1"))
+  Neftel_g1 <- readRDS(file = paste0(path, '/r_files/', "neftel_seurat_group1"))
 }
 
 
-p1 <- DimPlot(Neftel,reduction = "umap",group.by='malignant')
+p1 <- DimPlot(Neftel_g1,reduction = "umap",group.by='malignant')
 p1
 
-Neftel<-SetIdent(Neftel,value='malignant')
-Neftel_malignant<-subset(Neftel, idents='yes')
+Neftel_g1<-SetIdent(Neftel_g1,value='malignant')
+Neftel_g1_malignant<-subset(Neftel_g1, idents='yes')
 
-z<-GetAssayData(Neftel_malignant,slot='scale.data')
-metaData<-Neftel_malignant@meta.data$sample
+z_g1<-GetAssayData(Neftel_g1_malignant,slot='scale.data')
+metaData<-Neftel_g1_malignant@meta.data$sample
 
 # setwd('/Users/idala384/Desktop/scEM_package/scripts/')
 # devtools::load_all()
 library(scregclust)
 
-out<-scregclust_format(z)
+out<-scregclust_format(z_g1)
 
 genesymbols<-out[[1]]
 sample_assignment<-out[[2]]
@@ -80,8 +80,8 @@ for (i in 1:length(unique(metaData))){
 }
 
 if(!'neftel_scregfit_group1' %in% list.files(paste0(path,'/r_files/'))){
-  fit <- scregclust(
-    z,
+  fit_g1 <- scregclust(
+    z_g1,
     genesymbols,
     is_predictor,
     n_cl = 10L,
@@ -93,9 +93,9 @@ if(!'neftel_scregfit_group1' %in% list.files(paste0(path,'/r_files/'))){
     sample_assignment = sample_assignment
   )
 
-  saveRDS(fit, file = paste0(path, '/r_files/', "neftel_scregfit_group1"))
+  saveRDS(fit_g1, file = paste0(path, '/r_files/', "neftel_scregfit_group1"))
 } else {
-  fit <- readRDS(file = paste0(path, '/r_files/', "neftel_scregfit_group1"))
+  fit_g1 <- readRDS(file = paste0(path, '/r_files/', "neftel_scregfit_group1"))
 }
 # library(regnet)
 # plotRegNet(fit)
@@ -104,8 +104,8 @@ if(!'neftel_scregfit_group1' %in% list.files(paste0(path,'/r_files/'))){
 
 library(Matrix)
 if(!'neftel_mn_group2' %in% list.files(paste0(path,'/r_files/'))){
-  mn<-readMM(file='./Group2/exp_data_TPM.mtx')
-  mn<-as.matrix(mn)
+  mn_g2<-readMM(file='./Group2/exp_data_TPM.mtx')
+  mn_g2<-as.matrix(mn_g2)
 
   cells<-read.table(file='./Group2/Cells.txt',sep=' ',header=TRUE,stringsAsFactors = FALSE)
   genes<-read.table(file='./Group2/Genes.txt',sep='\t', header=FALSE,stringsAsFactors = FALSE)
@@ -113,42 +113,42 @@ if(!'neftel_mn_group2' %in% list.files(paste0(path,'/r_files/'))){
 
   rownames(cells)<-cells[,1]
 
-  rownames(mn)<-genes
-  colnames(mn)<-cells$cell_name
+  rownames(mn_g2)<-genes
+  colnames(mn_g2)<-cells$cell_name
 
-  saveRDS(mn, file = paste0(path, '/r_files/', "neftel_mn_group2"))
+  saveRDS(mn_g2, file = paste0(path, '/r_files/', "neftel_mn_group2"))
 }else{
-  mn <- readRDS(file = paste0(path, '/r_files/', "neftel_mn_group2"))
+  mn_g2 <- readRDS(file = paste0(path, '/r_files/', "neftel_mn_group2"))
 }
 
 library('Seurat')
 if(!'neftel_seurat_group2' %in% list.files(paste0(path,'/r_files/'))){
-  Neftel<-CreateSeuratObject(mn,min.cells = 3,min.features =500,meta.data=cells)
+  Neftel_g2<-CreateSeuratObject(mn_g2,min.cells = 3,min.features =500,meta.data=cells)
 
-  Neftel<-ScaleData(Neftel, do.scale=FALSE, do.center=FALSE)
-  Neftel<-FindVariableFeatures(Neftel)
+  Neftel_g2<-ScaleData(Neftel_g2, do.scale=FALSE, do.center=FALSE)
+  Neftel_g2<-FindVariableFeatures(Neftel_g2)
 
-  Neftel <- RunPCA(Neftel, npcs = 30, verbose = FALSE)
-  Neftel <- RunUMAP(Neftel, reduction = "pca", dims = 1:30)
+  Neftel_g2 <- RunPCA(Neftel_g2, npcs = 30, verbose = FALSE)
+  Neftel_g2 <- RunUMAP(Neftel_g2, reduction = "pca", dims = 1:30)
 
-  saveRDS(Neftel, file = paste0(path, '/r_files/', "neftel_seurat_group2"))
+  saveRDS(Neftel_g2, file = paste0(path, '/r_files/', "neftel_seurat_group2"))
 }else{
-  Neftel <- readRDS(file = paste0(path, '/r_files/', "neftel_seurat_group2"))
+  Neftel_g2 <- readRDS(file = paste0(path, '/r_files/', "neftel_seurat_group2"))
 }
 
-p1 <- DimPlot(Neftel, reduction = "umap", group.by = "malignant")
+p1 <- DimPlot(Neftel_g2, reduction = "umap", group.by = "malignant")
 p1
 
-Neftel<-SetIdent(Neftel,value='malignant')
-Neftel_malignant<-subset(Neftel, idents='yes')
+Neftel_g2<-SetIdent(Neftel_g2,value='malignant')
+Neftel_g2_malignant<-subset(Neftel_g2, idents='yes')
 
-ix<-which(is.na(Neftel_malignant@meta.data$MESlike2))
-Neftel_malignant <- Neftel_malignant[,!colnames(Neftel_malignant) %in% colnames(Neftel_malignant)[ix]]
+ix<-which(is.na(Neftel_g2_malignant@meta.data$MESlike2))
+Neftel_g2_malignant <- Neftel_g2_malignant[,!colnames(Neftel_g2_malignant) %in% colnames(Neftel_g2_malignant)[ix]]
 
-z<-GetAssayData(Neftel_malignant,slot='scale.data')
-metaData<-Neftel_malignant@meta.data$sample
+z_g2<-GetAssayData(Neftel_g2_malignant,slot='scale.data')
+metaData<-Neftel_g2_malignant@meta.data$sample
 
-out<-scregclust_format(z)
+out<-scregclust_format(z_g2)
 
 genesymbols<-out[[1]]
 sample_assignment<-out[[2]]
@@ -162,8 +162,8 @@ is_predictor<-out[[3]]
 # # 2: Quick-TRANSfer stage steps exceeded maximum (= 990350)
 #
 # if(!'neftel_scregfit_group2' %in% list.files(paste0(path,'/r_files/'))){
-#   fit <- scregclust(
-#     z,
+#   fit_g2 <- scregclust(
+#     z_g2,
 #     genesymbols,
 #     is_predictor,
 #     n_cl = 10L,
@@ -175,9 +175,9 @@ is_predictor<-out[[3]]
 #     sample_assignment = sample_assignment
 #   )
 #
-#   saveRDS(fit, file = paste0(path, '/r_files/', "neftel_scregfit_group2"))
+#   saveRDS(fit_g2, file = paste0(path, '/r_files/', "neftel_scregfit_group2"))
 # } else {
-#   fit <- readRDS(file = paste0(path, '/r_files/', "neftel_scregfit_group2"))
+#   fit_g2 <- readRDS(file = paste0(path, '/r_files/', "neftel_scregfit_group2"))
 # }
 # library(regnet)
-# plotRegNet(fit)
+# plotRegNet(fit_g2)
