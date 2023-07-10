@@ -1,11 +1,14 @@
 rm(list = ls())
 execution_path <- dirname(rstudioapi::getSourceEditorContext()$path)
 
+path <- paste0(execution_path, '/../../datasets_sctargettranslator/Neftel2019')
+setwd(path)
+
 library(scregclust)
 library('Seurat')
 library(Matrix)
 
-source(paste0(execution_path,"/run_scRegClust_on_Neftel2019.R"))
+source(paste0(execution_path,"/setup.R"))
 
 if(!'neftel_seurat_group1' %in% list.files(paste0(path,'/r_files/'))){
   Neftel_g1 <- CreateSeuratObject(mn_g1,min.cells = 3,min.features =500,meta.data = cells)
@@ -60,6 +63,14 @@ if(!'neftel_scregfit_group1' %in% list.files(paste0(path,'/r_files/'))){
 }
 # library(regnet)
 # plotRegNet(fit)
+
+fit_g1$results
+# rowSums(Pi)
+# rowSums(R)
+plot(fit_g1)$data
+
+#could do some smarter visualisation of output
+
 
 group_2_flag = F
 if(group_2_flag){
