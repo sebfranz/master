@@ -53,7 +53,17 @@ train_dat <- dat
 initial_cell_clust <- kmeans(t(train_dat), n_cell_clusters)$cluster
 # initial_cell_clust <- sample(1:n_cell_clusters, n_cells, replace = T)
 
-previous_cell_clust <- initial_cell_clust
+
+# Kod för att flytta 1% av cellerna i varje kluster till ett annat kluster.
+disturbed_initial_cell_clust <- initial_cell_clust
+for(i_cluster in 1:n_cell_clusters){
+  indexes_of_cluster <- which(initial_cell_clust == i_cluster)
+  some_of_those_indexes <- sample(indexes_of_cluster, size=as.integer(length(indexes_of_cluster)*0.01), replace = F)
+  disturbed_initial_cell_clust[some_of_those_indexes] <- sample(c(1:n_cell_clusters)[-i_cluster], size=length(some_of_those_indexes), replace=T)
+}
+
+
+previous_cell_clust <- disturbed_initial_cell_clust
 
 
 for (i_main in 1:50){
