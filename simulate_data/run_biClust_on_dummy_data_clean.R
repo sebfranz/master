@@ -2,6 +2,7 @@ rm(list = ls())
 execution_path <- dirname(rstudioapi::getSourceEditorContext()$path)
 source(paste0(execution_path,"/dummy_data.R"))
 library(scregclust)
+library(plyr)
 set.seed(1)  # This seed crashes due to scregclust producing NULL in all target gene clusters in the only cell cluster left
 
 # Set variables ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -11,8 +12,8 @@ n_target_gene_clusters <- c(3,4,5)  # Number of target gene clusters in each cel
 n_target_genes <- 20
 n_regulator_genes <- 15
 n_cells <- c(1000,5000,10000)
-regulator_means = c(1,2,3)  # For generating dummy data, regulator mean in each cell cluster
-coefficient_means = list(c(1,2,3), c(1,2,3,4), c(1,2,3,4,5))  # For generating dummy data, coefficient means in each cell cluster
+regulator_means = c(51,7435,1)  # For generating dummy data, regulator mean in each cell cluster
+coefficient_means = list(c(10,20,30), c(1,200,300,400), c(1000,213,313,144,1245))  # For generating dummy data, coefficient means in each cell cluster
 true_cluster_allocation = rep(1:n_cell_clusters, times=n_cells)
 total_n_cells = sum(n_cells)
 
@@ -20,6 +21,7 @@ total_n_cells = sum(n_cells)
 
 dummy_data <- vector(mode = "list", length = n_cell_clusters)
 for(i_cluster in 1:n_cell_clusters){
+  print(i_cluster)
   dummy_data[[i_cluster]] <- generate_dummy_data(n_target_genes,
                                                  n_regulator_genes,
                                                  n_cells = n_cells[i_cluster],
@@ -80,7 +82,7 @@ for (i_main in 1:50){
       is_regulator           = (1:(n_target_genes+n_regulator_genes) > n_target_genes) + 0,    #vector indicating which genes are regulators
       n_cl                   = n_target_gene_clusters[i_cluster],
       target_cluster_start   = gene_cluster_start,
-      penalization           = n_regulator_genes,  # Maximal number of regulators for one cluster
+      penalization           = 0.14,  # Maximal number of regulators for one cluster
       verbose                = FALSE
     ) -> out_list[[i_cluster]]
   }
@@ -128,12 +130,20 @@ for (i_main in 1:50){
   # here we will compare the minimal mse per gene cluster model per cell cluster.
   # Could also use other metric than mse, e.g. r2
 
+  if (all(is.na(MSE))){
+    stop("scregclust put everything in noise cluster for all cellclusters. Exiting.")
+  }
   updated_cell_clust <- rep(1:n_cell_clusters, n_target_gene_clusters)[apply(MSE, 2, which.min)]
 
   # Cross tabulation of clusters
   print("Table")
   print(data.frame(table(updated_cell_clust, previous_cell_clust)))
   flush.console()
+
+  if (all(previous_cell_clust == updated_cell_clust)){
+    print("Cell clustering same as last iteration. Exiting.")
+    break
+  }
 
   # Run next iteration with updated cell clustering
   previous_cell_clust <- updated_cell_clust
@@ -142,7 +152,6 @@ for (i_main in 1:50){
   unique_cell_cluster_ids <- sort(unique(previous_cell_clust))
   if (length(unique_cell_cluster_ids)<n_cell_clusters){
     n_cell_clusters = length(unique_cell_cluster_ids)
-    library(plyr)
     previous_cell_clust <- mapvalues(previous_cell_clust, from = unique_cell_cluster_ids, to = 1:n_cell_clusters)
     n_target_gene_clusters <- n_target_gene_clusters[unique_cell_cluster_ids]
   }
