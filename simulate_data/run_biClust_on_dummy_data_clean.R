@@ -3,17 +3,17 @@ execution_path <- dirname(rstudioapi::getSourceEditorContext()$path)
 source(paste0(execution_path,"/dummy_data.R"))
 library(scregclust)
 library(plyr)
-set.seed(1)  # This seed crashes due to scregclust producing NULL in all target gene clusters in the only cell cluster left
+set.seed(1234)  # This seed crashes due to scregclust producing NULL in all target gene clusters in the only cell cluster left
 
 # Set variables ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 n_cell_clusters <- 3
 n_target_gene_clusters <- c(3,4,5)  # Number of target gene clusters in each cell cluster
-n_target_genes <- 20
-n_regulator_genes <- 15
+n_target_genes <- 40
+n_regulator_genes <- 20
 n_cells <- c(1000,5000,10000)
-regulator_means = c(51,7435,1)  # For generating dummy data, regulator mean in each cell cluster
-coefficient_means = list(c(10,20,30), c(1,200,300,400), c(1000,213,313,144,1245))  # For generating dummy data, coefficient means in each cell cluster
+regulator_means = c(1,2,3)  # For generating dummy data, regulator mean in each cell cluster
+coefficient_means = list(c(1,20,30), c(1,2,3,4), c(1,2,3,4,5))  # For generating dummy data, coefficient means in each cell cluster
 true_cluster_allocation = rep(1:n_cell_clusters, times=n_cells)
 total_n_cells = sum(n_cells)
 
@@ -62,7 +62,7 @@ for(i_cluster in 1:n_cell_clusters){
   disturbed_initial_cell_clust[some_of_those_indexes] <- sample(c(1:n_cell_clusters)[-i_cluster], size=length(some_of_those_indexes), replace=T)
 }
 
-
+cell_cluster_history <- cbind(initial_cell_clust, disturbed_initial_cell_clust)
 previous_cell_clust <- disturbed_initial_cell_clust
 
 
@@ -144,6 +144,9 @@ for (i_main in 1:50){
     stop("scregclust put everything in noise cluster for all cellclusters. Exiting.")
   }
   updated_cell_clust <- rep(1:n_cell_clusters, n_target_gene_clusters)[apply(MSE, 2, which.min)]
+
+  cell_cluster_history <- cbind(cell_cluster_history, updated_cell_clust)
+
 
   # Cross tabulation of clusters
   print("Table")
