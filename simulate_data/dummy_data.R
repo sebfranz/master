@@ -13,12 +13,12 @@
 # Rows are cluster index.
 # Cols are target gene index.
 generate_dummy_data <- function(
-    n_target_genes = 10,              #number of target genes
-    n_regulator_genes = 5,               #number of regulator genes
-    n_cells  = 100,             #number of cells
-    n_target_gene_clusters  = 3,               #Number of target gene clusters
+    n_target_genes = 30,              #number of target genes
+    n_regulator_genes = 20,               #number of regulator genes
+    n_cells  = 1000,             #number of cells
+    n_target_gene_clusters  = 2,               #Number of target gene clusters
     regulator_mean   = 1, #mean expression of regulator genes
-    coefficient_mean = c(1,10,100) #mean coefficients in true  model, length n_target_gene_clusters
+    coefficient_mean = c(1,2) #mean coefficients in true  model, length n_target_gene_clusters
 )
 {
   # Check arguments
@@ -146,8 +146,8 @@ generate_dummy_data <- function(
     matrix(data = Beta[R2R_i(i),,i], nrow = length(R2R_i(i)), ncol = n_target_genes)
   }
 
-  Beta2Beta_i(3) #Beta_i as in the manuscript, has dimension |R_i| x n_target_genes
-  Beta[,,3]
+  Beta2Beta_i(1) #Beta_i as in the manuscript, has dimension |R_i| x n_target_genes
+  Beta[,,1]
 
   # Matrix Z_t --------------------------------------------------------------
   # If j is one target cell, that cells expression should then be,
