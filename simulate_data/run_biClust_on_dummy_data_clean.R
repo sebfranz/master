@@ -145,8 +145,9 @@ for (i_main in 1:50){
   }
   updated_cell_clust <- rep(1:n_cell_clusters, n_target_gene_clusters)[apply(MSE, 2, which.min)]
 
+  # Update data in cell_cluster_history and rename the columns to something good
   cell_cluster_history <- cbind(cell_cluster_history, updated_cell_clust)
-
+  colnames(cell_cluster_history) <- c("True", "Disturbed", paste0("Iteration ", 1:i_main))
 
   # Cross tabulation of clusters
   print("Table")

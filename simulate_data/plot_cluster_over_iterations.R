@@ -3,7 +3,7 @@ library(ggalluvial)
 library(reshape2)
 
 d <- cell_cluster_history
-dimnames(d) <- list(paste0("cell", 1:nrow(d)), paste0("iter", 1:ncol(d)))
+rownames(d) <- paste0("cell", 1:nrow(d))
 d <- melt(d)
 colnames(d) <- c("cell", "iteration", "cluster")
 d['cluster'] <- as.factor(d[, 'cluster'])
@@ -17,6 +17,7 @@ d['cluster'] <- as.factor(d[, 'cluster'])
 #   theme(legend.position = "bottom") +
 #   ggtitle("Treatment across observation period")
 
+# Doesn't keep track of individual cells
 ggplot(d, aes(x = iteration, stratum = cluster, alluvium = cell, fill = cluster, label = cluster)) +
   scale_fill_brewer(type = "qual", palette = "Set2") +
   geom_flow() +
