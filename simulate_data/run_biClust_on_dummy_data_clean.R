@@ -3,6 +3,7 @@ execution_path <- dirname(rstudioapi::getSourceEditorContext()$path)
 source(paste0(execution_path,"/dummy_data.R"))
 library(scregclust)
 library(plyr)
+library(aricode)
 set.seed(1234)  # This seed crashes due to scregclust producing NULL in all target gene clusters in the only cell cluster left
 
 # Set variables ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -65,21 +66,16 @@ for(i_cluster in 1:n_cell_clusters){
 cell_cluster_history <- cbind(initial_cell_clust, disturbed_initial_cell_clust)
 previous_cell_clust <- disturbed_initial_cell_clust
 
+
 max_iter <- 50
-num_rows <- length(disturbed_initial_cell_clust)
-# Generate column names
 
-column_names <- c("Cell_id", "Initial", paste0("Iteration_", 1:max_iter))
+cell_cluster_history <- data.frame(matrix(NA, nrow = length(previous_cell_clust), ncol = max_iter + 2)) #preallocate memory
+colnames(cell_cluster_history) <- c("Cell_id", "Initial", paste0("Iteration_", 1:max_iter)) #set colnames
+cell_cluster_history$Cell_id <-1:length(previous_cell_clust) #set cell names
+cell_cluster_history$Initial <- previous_cell_clust
 
-cell_cluster_history <- tibble("Cell_id" = 1:num_rows)
-
-# Loop through column names and add columns with NA values
-for (col_name in column_names [2:length(column_names)]) {
-  cell_cluster_history[[col_name]] <- rep(NA, num_rows)
-}
-
-
-
+#set exit flag
+stop_iterating_flag = T;
 for (i_main in 1:max_iter){
   print(paste("Iteration", i_main))
 # Run scregclust for each cell cluster ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -160,7 +156,7 @@ for (i_main in 1:max_iter){
   updated_cell_clust <- rep(1:n_cell_clusters, n_target_gene_clusters)[apply(MSE, 2, which.min)]
 
   # Update data in cell_cluster_history and rename the columns to something good
-  cell_cluster_history <- cbind(cell_cluster_history, updated_cell_clust)
+  cell_cluster_history[, i_main + 2] <- updated_cell_clust
 
 
   # Cross tabulation of clusters
@@ -168,8 +164,22 @@ for (i_main in 1:max_iter){
   print(data.frame(table(updated_cell_clust, previous_cell_clust)))
   flush.console()
 
-  if (all(previous_cell_clust == updated_cell_clust)){
-    print("Cell clustering same as last iteration. Exiting.")
+  # if (all(previous_cell_clust == updated_cell_clust)){
+  #   print("Cell clustering same as last iteration. Exiting.")
+  #   break
+  # }
+
+  for(prev_clustering in 1:(i_main)){
+    print(paste0('comparing with iteration', prev_clustering))
+    if(RI(updated_cell_clust,cell_cluster_history[,prev_clustering + 1]) == 1){
+      print("Cell clustering same as some previous iteration. Exiting.")
+      stop_iterating_flag = T
+      break
+    }
+  }
+
+  if(stop_iterating_flag == T){
+    print("Cell clustering same as some previous iteration. Exiting.")
     break
   }
 
