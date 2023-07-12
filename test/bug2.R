@@ -1,6 +1,6 @@
 library(scregclust)
 set.seed(1)
-load("test_data_2.RData")
+load("test/test_data_2.RData")
 # If scregclust fails save all data with
 # n_target_gene_clusters <- n_target_gene_clusters[i_cluster]
 # save(list=c("local_dat", "cell_data_split", "n_target_genes", "n_regulator_genes", "n_target_gene_clusters", "gene_cluster_start"), file="test_data_2.RData")

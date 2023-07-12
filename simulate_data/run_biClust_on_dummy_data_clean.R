@@ -75,7 +75,8 @@ cell_cluster_history$Cell_id <-1:length(previous_cell_clust) #set cell names
 cell_cluster_history$Initial <- previous_cell_clust
 
 #set exit flag
-stop_iterating_flag = T;
+stop_iterating_flag = F;
+
 for (i_main in 1:max_iter){
   print(paste("Iteration", i_main))
 # Run scregclust for each cell cluster ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -155,7 +156,8 @@ for (i_main in 1:max_iter){
   }
   updated_cell_clust <- rep(1:n_cell_clusters, n_target_gene_clusters)[apply(MSE, 2, which.min)]
 
-  # Update data in cell_cluster_history and rename the columns to something good
+  # Update data in cell_cluster_history
+  # skip
   cell_cluster_history[, i_main + 2] <- updated_cell_clust
 
 
@@ -169,17 +171,20 @@ for (i_main in 1:max_iter){
   #   break
   # }
 
-  for(prev_clustering in 1:(i_main)){
-    print(paste0('comparing with iteration', prev_clustering))
-    if(RI(updated_cell_clust,cell_cluster_history[,prev_clustering + 1]) == 1){
-      print("Cell clustering same as some previous iteration. Exiting.")
+  #compare with previous iterations
+  for(prev_clustering in ((i_main-1):0) ){
+    print(paste0('comparing with iteration ', prev_clustering))
+    if(RI(updated_cell_clust,cell_cluster_history[,prev_clustering + 2]) == 1){
+      print("Cell clustering from iteration  same as some previous iteration. Exiting.")
+      print(paste0("RI of ",
+            RI(updated_cell_clust,cell_cluster_history[,prev_clustering + 2]),
+            " when comparing iteration ", i_main," to iteration ", prev_clustering))
       stop_iterating_flag = T
       break
     }
   }
 
   if(stop_iterating_flag == T){
-    print("Cell clustering same as some previous iteration. Exiting.")
     break
   }
 
@@ -193,5 +198,4 @@ for (i_main in 1:max_iter){
     previous_cell_clust <- mapvalues(previous_cell_clust, from = unique_cell_cluster_ids, to = 1:n_cell_clusters)
     n_target_gene_clusters <- n_target_gene_clusters[unique_cell_cluster_ids]
   }
-
 }
