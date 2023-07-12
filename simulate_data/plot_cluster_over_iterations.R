@@ -3,8 +3,8 @@ library(ggalluvial)
 library(reshape2)
 
 d <- cell_cluster_history
-rownames(d) <- paste0("cell", 1:nrow(d))
-d <- melt(d)
+d <- d[ , colSums(is.na(d))==0]
+d <- melt(d, id.vars="Cell_id")
 colnames(d) <- c("cell", "iteration", "cluster")
 d['cluster'] <- as.factor(d[, 'cluster'])
 
