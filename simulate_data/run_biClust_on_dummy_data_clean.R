@@ -65,8 +65,22 @@ for(i_cluster in 1:n_cell_clusters){
 cell_cluster_history <- cbind(initial_cell_clust, disturbed_initial_cell_clust)
 previous_cell_clust <- disturbed_initial_cell_clust
 
+max_iter <- 50
+num_rows <- length(disturbed_initial_cell_clust)
+# Generate column names
 
-for (i_main in 1:50){
+column_names <- c("Cell_id", "Initial", paste0("Iteration_", 1:max_iter))
+
+cell_cluster_history <- tibble("Cell_id" = 1:num_rows)
+
+# Loop through column names and add columns with NA values
+for (col_name in column_names [2:length(column_names)]) {
+  cell_cluster_history[[col_name]] <- rep(NA, num_rows)
+}
+
+
+
+for (i_main in 1:max_iter){
   print(paste("Iteration", i_main))
 # Run scregclust for each cell cluster ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -147,7 +161,7 @@ for (i_main in 1:50){
 
   # Update data in cell_cluster_history and rename the columns to something good
   cell_cluster_history <- cbind(cell_cluster_history, updated_cell_clust)
-  colnames(cell_cluster_history) <- c("True", "Disturbed", paste0("Iteration ", 1:i_main))
+
 
   # Cross tabulation of clusters
   print("Table")

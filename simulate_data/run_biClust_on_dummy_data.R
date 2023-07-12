@@ -9,7 +9,7 @@ n_target_gene_clusters <- c(3,4,5)  # Number of target gene clusters in each cel
 n_target_genes <- 20
 n_regulator_genes <- 15
 n_cells <- c(1000,5000,10000)
-regulator_means = c(1,2,3)  # For generating dummy data, regulator mean in each cell cluster
+regulator_means = 10^c(1,2,3)  # For generating dummy data, regulator mean in each cell cluster
 coefficient_means = list(c(1,2,3), c(1,2,3,4), c(1,2,3,4,5))  # For generating dummy data, coefficient means in each cell cluster
 true_cluster_allocation = rep(1:n_cell_clusters, times=n_cells)
 total_n_cells = sum(n_cells)
@@ -93,7 +93,7 @@ for(i_cluster in 1:n_cell_clusters){
     is_regulator           = (1:(n_target_genes+n_regulator_genes) > n_target_genes) + 0,    #vector indicating which genes are regulators
     n_cl                   = n_target_gene_clusters[i_cluster],
     target_cluster_start   = gene_cluster_start,
-    penalization           = n_regulator_genes  # Maximal number of regulators for one cluster
+    penalization           = 0.001  # Maximal number of regulators for one cluster
   ) -> out_list[[i_cluster]]
 }
 
