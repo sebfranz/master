@@ -4,10 +4,8 @@ library(aricode)  # To calculate rand index
 
 biclust <- function(max_iter=50,
                     initial_cell_clust,
-                    disturbed_initial_cell_clust,
                     train_dat){
-  cell_cluster_history <- cbind(initial_cell_clust, disturbed_initial_cell_clust)
-  previous_cell_clust <- disturbed_initial_cell_clust
+  previous_cell_clust <- initial_cell_clust
 
   cell_cluster_history <- data.frame(matrix(NA, nrow = length(previous_cell_clust), ncol = max_iter + 2)) #preallocate memory
   colnames(cell_cluster_history) <- c("Cell_id", "Initial", paste0("Iteration_", 1:max_iter)) #set colnames

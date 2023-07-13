@@ -35,7 +35,6 @@ res <- generate_dummy_data_for_cell_clustering(
 
 res <- biclust(max_iter=50,
         initial_cell_clust = res$initial_cell_clust,
-        disturbed_initial_cell_clust = res$disturbed_initial_cell_clust,
         train_dat = res$train_dat)
 
 plot_clusters_over_iterations(cell_cluster_history = res$cell_cluster_history)
