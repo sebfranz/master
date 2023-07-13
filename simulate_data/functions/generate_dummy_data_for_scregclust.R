@@ -12,7 +12,7 @@
 # Here it's randomly generated, for real data it would be smartly guessed.
 # Rows are cluster index.
 # Cols are target gene index.
-generate_dummy_data <- function(
+generate_dummy_data_for_scregclust <- function(
     n_target_genes = 30,              #number of target genes
     n_regulator_genes = 20,               #number of regulator genes
     n_cells  = 1000,             #number of cells
@@ -24,10 +24,10 @@ generate_dummy_data <- function(
   # Check arguments
   check_positive_scalar <- function(x){
     if (!(length(x) == 1L &&
-        is.atomic(x) &&
-        is.numeric(x) &&
-        x == round(x) &&
-        x >= 1)) {
+          is.atomic(x) &&
+          is.numeric(x) &&
+          x == round(x) &&
+          x >= 1)) {
       stop(paste0(deparse(substitute(a)), " must be positive scalar."))
     }
   }
@@ -56,7 +56,7 @@ generate_dummy_data <- function(
     Pi[sample.int(n = n_target_gene_clusters, size = 1), index] <- 1
   }
 
-  Pi
+  # Pi
 
   # Binary matrix R ---------------------------------------------------------
   # The regulators (columns) that affect each cluster (rows, i in the manuscript).
@@ -74,15 +74,15 @@ generate_dummy_data <- function(
     }
   }
 
-  R
+  # R
 
-  R[1,]  # Cluster 1 is affected by these regulators
-  sum(R[1,])  # R_1 in the manuscript is which regulators affect cluster 1
+  # R[1,]  # Cluster 1 is affected by these regulators
+  # sum(R[1,])  # R_1 in the manuscript is which regulators affect cluster 1
 
   R2R_i <- function(i) {
     which(R[i,]!= 0)
   }
-  R2R_i(1) # R_1 in the manuscript is which regulators affect cluster 1
+  # R2R_i(1) # R_1 in the manuscript is which regulators affect cluster 1
 
   # Matrix S ----------------------------------------------------------------
   # A n_target_gene_clusters x n_regulator_genes matrix with 1 or -1 if the regulator (columns)
@@ -109,8 +109,8 @@ generate_dummy_data <- function(
                 nrow = n_cells, ncol=n_regulator_genes)
   # Z_r <- sapply(1:n_regulator_genes, function(i)  rnorm(n_cells, mean = runif(1, 0.1,1), sd = 0.1) )
 
-  Z_r
-  dim(Z_r)
+  # Z_r
+  # dim(Z_r)
 
   # Array 𝚩 ---------------------------------------------------------------
   # Now we want to build 𝚩 and use 𝚩 to build Z_t.
@@ -137,8 +137,8 @@ generate_dummy_data <- function(
   for (clust in 1:n_target_gene_clusters){
     Beta[,,clust] <-  diag_(R[clust,]) %*% Beta[,,clust]
   }
-  Beta
-  dim(Beta)
+  # Beta
+  # dim(Beta)
 
   # In the manuscript the zero rows are just dropped
 
@@ -146,8 +146,8 @@ generate_dummy_data <- function(
     matrix(data = Beta[R2R_i(i),,i], nrow = length(R2R_i(i)), ncol = n_target_genes)
   }
 
-  Beta2Beta_i(1) #Beta_i as in the manuscript, has dimension |R_i| x n_target_genes
-  Beta[,,1]
+  # Beta2Beta_i(1) #Beta_i as in the manuscript, has dimension |R_i| x n_target_genes
+  # Beta[,,1]
 
   # Matrix Z_t --------------------------------------------------------------
   # If j is one target cell, that cells expression should then be,
@@ -176,12 +176,11 @@ generate_dummy_data <- function(
   # This can probably be vectorized
   # For this we are omitting the variance terms.
   # Z_t, Z_r, S_i, and B_i as here will minimize (1) in the manuscript
-  list(
-    Z_t = Z_t,
-    Z_r = Z_r,
-    Pi  = Pi,
-    R   = R,
-    S   = S
+  list(Z_t = Z_t,
+       Z_r = Z_r,
+       Pi  = Pi,
+       R   = R,
+       S   = S
   )
 }
 
