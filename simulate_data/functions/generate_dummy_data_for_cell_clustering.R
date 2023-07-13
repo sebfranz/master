@@ -28,7 +28,7 @@ generate_dummy_data_for_cell_clustering <- function(
                                                                   regulator_mean = regulator_means[i_cluster],
                                                                   coefficient_mean = coefficient_means[[i_cluster]])
   }
-  print(str(dummy_data))
+
   # Create Z_r and Z_t from dummy data
   Z_t <- dummy_data[[1]]$Z_t
   Z_r <- dummy_data[[1]]$Z_r

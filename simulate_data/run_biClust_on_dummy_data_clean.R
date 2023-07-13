@@ -6,7 +6,7 @@ library(aricode)  # To calculate rand index
 execution_path <- dirname(rstudioapi::getSourceEditorContext()$path)
 source(paste0(execution_path,"/functions/generate_dummy_data_for_cell_clustering.R"))
 source(paste0(execution_path,"/functions/biclust.R"))
-source(paste0(execution_path,"/functions/plot_clusters_over_iterations.R"))
+source(paste0(execution_path,"/functions/plot_cluster_history.R"))
 
 set.seed(1234)  # This seed crashes due to scregclust producing NULL in all target gene clusters in the only cell cluster left
 
@@ -33,8 +33,11 @@ res <- generate_dummy_data_for_cell_clustering(
     coefficient_means = coefficient_means  # For generating dummy data, coefficient means in each cell cluster
 )
 
+cell_cluster_history <- cbind(res$initial_cell_clust, res$disturbed_initial_cell_clust)
+colnames(cell_cluster_history) <- c("True allocation", "Disturbed allocation")
+
 res <- biclust(max_iter=50,
-        initial_cell_clust = res$initial_cell_clust,
+        initial_cluster_history = cell_cluster_history,
         train_dat = res$train_dat)
 
-plot_clusters_over_iterations(cell_cluster_history = res$cell_cluster_history)
+plot_cluster_history(cell_cluster_history = res$cell_cluster_history)

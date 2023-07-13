@@ -3,15 +3,17 @@ library(plyr)
 library(aricode)  # To calculate rand index
 
 biclust <- function(max_iter=50,
-                    initial_cell_clust,
+                    initial_cluster_history,
                     train_dat){
-  previous_cell_clust <- initial_cell_clust
 
-  cell_cluster_history <- data.frame(matrix(NA, nrow = length(previous_cell_clust), ncol = max_iter + 2)) #preallocate memory
-  colnames(cell_cluster_history) <- c("Cell_id", "Initial", paste0("Iteration_", 1:max_iter)) #set colnames
-  cell_cluster_history$Cell_id <-1:length(previous_cell_clust) #set cell names
-  cell_cluster_history$Initial <- previous_cell_clust
 
+  # Preallocate memory
+  initial_column_padding <- ncol(initial_cluster_history) + 1  # +1 Because we have an index column that is not an index column
+  cell_cluster_history <- data.frame(matrix(NA, nrow = nrow(initial_cluster_history), ncol = max_iter + initial_column_padding))
+  colnames(cell_cluster_history) <- c("Cell ID", colnames(initial_cluster_history), paste0("Iteration ", 1:max_iter))
+  cell_cluster_history[, 'Cell ID'] <-1:nrow(initial_cluster_history)  # Set cell names
+  cell_cluster_history[, colnames(initial_cluster_history)] <- initial_cluster_history
+  previous_cell_clust <- initial_cluster_history[, ncol(initial_cluster_history)]
   # Set exit flag
   stop_iterating_flag = F;
 
@@ -97,7 +99,7 @@ biclust <- function(max_iter=50,
 
     # Update data in cell_cluster_history
     # skip
-    cell_cluster_history[, i_main + 2] <- updated_cell_clust
+    cell_cluster_history[, i_main + initial_column_padding] <- updated_cell_clust
 
     # Cross tabulation of clusters
     print("Table")
@@ -111,11 +113,11 @@ biclust <- function(max_iter=50,
 
     # Compare with previous iterations
     for(prev_clustering in ((i_main-1):0) ){
-      print(paste0('comparing with iteration ', prev_clustering))
-      if(RI(updated_cell_clust,cell_cluster_history[,prev_clustering + 2]) == 1){
+      print(paste0('Comparing with iteration ', prev_clustering))
+      if(RI(updated_cell_clust,cell_cluster_history[,prev_clustering + initial_column_padding]) == 1){
         print("Cell clustering from iteration  same as some previous iteration. Exiting.")
         print(paste0("RI of ",
-                     RI(updated_cell_clust,cell_cluster_history[,prev_clustering + 2]),
+                     RI(updated_cell_clust, cell_cluster_history[,prev_clustering + initial_column_padding]),
                      " when comparing iteration ", i_main," to iteration ", prev_clustering))
         stop_iterating_flag = T
         break
