@@ -43,10 +43,15 @@ if(!'neftel_mn_group1' %in% list.files(paste0(path,'/r_files/'))){
   colnames(mn_g1)<-cells$cell_name
 
   saveRDS(mn_g1, file = paste0(path, '/r_files/', "neftel_mn_group1"))
-  rm(cells, genes)
 
 }else{
   mn_g1 <- readRDS(file = paste0(path, '/r_files/', "neftel_mn_group1"))
+
+  cells<-read.table(file='./Group1/Cells_10X.txt',sep=' ',header=TRUE,stringsAsFactors = FALSE)
+  genes<-read.table(file='./Group1/Genes_10X.txt',sep='\t', header=FALSE,stringsAsFactors = FALSE)
+  genes<-genes[,1]
+
+  rownames(cells)<-cells[,1]
 }
 
 
