@@ -13,7 +13,7 @@ biclust <- function(max_iter=50,
   colnames(cell_cluster_history) <- c("Cell ID", colnames(initial_cluster_history), paste0("Iteration ", 1:max_iter))
   cell_cluster_history[, 'Cell ID'] <-1:nrow(initial_cluster_history)  # Set cell names
   cell_cluster_history[, colnames(initial_cluster_history)] <- initial_cluster_history
-  previous_cell_clust <- initial_cluster_history[, ncol(initial_cluster_history)]
+  prev_cell_clust <- initial_cluster_history[, ncol(initial_cluster_history)]
 
   # Set exit flag
   stop_iterating_flag = F;
@@ -25,11 +25,11 @@ biclust <- function(max_iter=50,
     # Preallocate outputs
     out_list <- vector(mode = "list", length = n_cell_clusters)
     # List of last iterations gene clustering
-    prev_gene_clusters <- vector(mode = "list", length = n_cell_clusters)
+    prev_target_gene_clusters <- vector(mode = "list", length = n_cell_clusters)
 
     for(i_cluster in 1:n_cell_clusters){
       # Get data for cell cluster i_cluster specifically
-      local_dat <- train_dat[,which(previous_cell_clust == i_cluster)]
+      local_dat <- train_dat[,which(prev_cell_clust == i_cluster)]
 
       # Training data are represented by 1 and test data by 2
       cell_data_split    <- sample(c(1,2),ncol(local_dat), replace = T)
@@ -38,26 +38,26 @@ biclust <- function(max_iter=50,
       # the same gene clustering as last time, possibly more efficient.
       if(i_main == 1){
         # Initial target gene clustering
-        gene_cluster_start <- kmeans(local_dat[1:n_target_genes,], n_target_gene_clusters[i_cluster])$cluster
+        target_gene_cluster_start <- kmeans(local_dat[1:n_target_genes,], n_target_gene_clusters[i_cluster])$cluster
       } else {
-        gene_cluster_start <- prev_gene_clusters[[i_cluster]]
+        target_gene_cluster_start <- prev_target_gene_clusters[[i_cluster]]
       }
 
       # Run scregclust
       scregclust(
-        expression             = local_dat,               # scRegClust wants this form
-        split_indices          = cell_data_split,         # Train data split
-        genesymbols            = paste0('g', 1:(n_target_genes+n_regulator_genes)),  #gene row names
-        is_regulator           = (1:(n_target_genes+n_regulator_genes) > n_target_genes) + 0,    #vector indicating which genes are regulators
+        expression             = local_dat,  # p rows of genes and n columns of cells of single cell expression data
+        split_indices          = cell_data_split,  # Train/test data split indicated by 1s and 2s
+        genesymbols            = paste0('g', 1:(n_target_genes+n_regulator_genes)),  # Gene row names
+        is_regulator           = (1:(n_target_genes+n_regulator_genes) > n_target_genes) + 0,  # Vectorindicating which genes are regulators
         n_cl                   = n_target_gene_clusters[i_cluster],
-        target_cluster_start   = gene_cluster_start,
-        penalization           = 0.14,  # Maximal number of regulators for one cluster
+        target_cluster_start   = target_gene_cluster_start,
+        penalization           = 0.14,
         verbose                = FALSE,
         max_optim_iter         = 100000,
       ) -> out_list[[i_cluster]]
 
-      #store gene clustering for next iteration
-    prev_gene_clusters[[i_cluster]] <- out_list[[i_cluster]]$results[[1]]$output[[1]]$cluster
+    # Store gene clustering for next iteration
+    prev_target_gene_clusters[[i_cluster]] <- out_list[[i_cluster]]$results[[1]]$output[[1]]$cluster
     }
 
 
@@ -67,7 +67,7 @@ biclust <- function(max_iter=50,
     # Calculate MSE for per cells per cell cluster,
     # for all target gene clusters in those cell clusters
     # Missing clusters are rows with NA
-    # matrix of cell cluster 1's target genes, then cell cluster 2's target genes - etc. In order. Columns are cells matching previous_cell_clust
+    # matrix of cell cluster 1's target genes, then cell cluster 2's target genes - etc. In order. Columns are cells matching prev_cell_clust
     # Example output
     # > str(MSE)
     # num [1:12, 1:16000] 68.9 124.1 11.9 66.6 119.9 ...
@@ -78,8 +78,8 @@ biclust <- function(max_iter=50,
       # Expression of all cells
       # xvals expression of regulator cells
       # yvals expression of target cells
-      xvals <- train_dat[(1:(n_target_genes+n_regulator_genes) > n_target_genes), which(previous_cell_clust == i_cell_cluster)]
-      yvals <-  train_dat[(1:(n_target_genes+n_regulator_genes) <= n_target_genes), which(previous_cell_clust == i_cell_cluster)]
+      xvals <- train_dat[(1:(n_target_genes+n_regulator_genes) > n_target_genes), which(prev_cell_clust == i_cell_cluster)]
+      yvals <-  train_dat[(1:(n_target_genes+n_regulator_genes) <= n_target_genes), which(prev_cell_clust == i_cell_cluster)]
       i_total_target_geneclusters <- 0
       for(ii_cell_cluster in 1:n_cell_clusters){
         clustering <- out_list[[ii_cell_cluster]]$results[[1]]$output[[1]]$cluster[1:n_target_genes]
@@ -89,7 +89,7 @@ biclust <- function(max_iter=50,
           betas_for_gene_cluster_i <- out_list[[ii_cell_cluster]]$results[[1]]$output[[1]]$coeffs[[i_target_gene_cluster]]
           # If no target gene was assigned to this cluster we need to do something else
           if(!is.null(betas_for_gene_cluster_i)) {
-            MSE[i_total_target_geneclusters, previous_cell_clust == i_cell_cluster] <- colMeans((yvals[target_gene_ids_in_cluster_i,] - t(betas_for_gene_cluster_i) %*% xvals)**2)
+            MSE[i_total_target_geneclusters, prev_cell_clust == i_cell_cluster] <- colMeans((yvals[target_gene_ids_in_cluster_i,] - t(betas_for_gene_cluster_i) %*% xvals)**2)
           }
         }
       }
@@ -114,15 +114,15 @@ biclust <- function(max_iter=50,
 
     # Cross tabulation of clusters
     print("Table")
-    print(data.frame(table(updated_cell_clust, previous_cell_clust)))
+    print(data.frame(table(updated_cell_clust, prev_cell_clust)))
     flush.console()
 
-    # if (all(previous_cell_clust == updated_cell_clust)){
+    # if (all(prev_cell_clust == updated_cell_clust)){
     #   print("Cell clustering same as last iteration. Exiting.")
     #   break
     # }
 
-    # Compare with previous iterations
+    # Compare clusters with with previous iterations so we can exit if we seen this allocation before
     for(prev_clustering in ((i_main-1):0) ){
       print(paste0('Comparing with iteration ', prev_clustering))
       if(RI(updated_cell_clust,cell_cluster_history[,prev_clustering + initial_column_padding]) == 1){
@@ -136,20 +136,20 @@ biclust <- function(max_iter=50,
     }
 
     if(stop_iterating_flag == T){
-      #clean up cluster history
+      # Clean up cluster history
       cell_cluster_history <- cell_cluster_history[,1:which(is.na(cell_cluster_history[1,]))-1]
-      #stop iterations
+      # Stop iterations/exit function
       break
     }
 
     # Run next iteration with updated cell clustering
-    previous_cell_clust <- updated_cell_clust
+    prev_cell_clust <- updated_cell_clust
 
     # Handle case where cell cluster disappeared
-    unique_cell_cluster_ids <- sort(unique(previous_cell_clust))
+    unique_cell_cluster_ids <- sort(unique(prev_cell_clust))
     if (length(unique_cell_cluster_ids)<n_cell_clusters){
       n_cell_clusters = length(unique_cell_cluster_ids)
-      previous_cell_clust <- mapvalues(previous_cell_clust, from = unique_cell_cluster_ids, to = 1:n_cell_clusters)
+      prev_cell_clust <- mapvalues(prev_cell_clust, from = unique_cell_cluster_ids, to = 1:n_cell_clusters)
       n_target_gene_clusters <- n_target_gene_clusters[unique_cell_cluster_ids]
     }
   }
