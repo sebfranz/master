@@ -14,6 +14,7 @@ biclust <- function(max_iter=50,
   cell_cluster_history[, 'Cell ID'] <-1:nrow(initial_cluster_history)  # Set cell names
   cell_cluster_history[, colnames(initial_cluster_history)] <- initial_cluster_history
   previous_cell_clust <- initial_cluster_history[, ncol(initial_cluster_history)]
+
   # Set exit flag
   stop_iterating_flag = F;
 
@@ -21,9 +22,10 @@ biclust <- function(max_iter=50,
     print(paste("Iteration", i_main))
     # Run scregclust for each cell cluster ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-
     # Preallocate outputs
     out_list <- vector(mode = "list", length = n_cell_clusters)
+    # List of last iterations gene clustering
+    prev_gene_clusters <- vector(mode = "list", length = n_cell_clusters)
 
     for(i_cluster in 1:n_cell_clusters){
       # Get data for cell cluster i_cluster specifically
@@ -32,8 +34,14 @@ biclust <- function(max_iter=50,
       # Training data are represented by 1 and test data by 2
       cell_data_split    <- sample(c(1,2),ncol(local_dat), replace = T)
 
-      # Initial target gene clustering
-      gene_cluster_start <- kmeans(local_dat[1:n_target_genes,], n_target_gene_clusters[i_cluster])$cluster
+      # The first iteration we initialize with kmeans, later iterations we start with
+      # the same gene clustering as last time, possibly more efficient.
+      if(i_main == 1){
+        # Initial target gene clustering
+        gene_cluster_start <- kmeans(local_dat[1:n_target_genes,], n_target_gene_clusters[i_cluster])$cluster
+      } else {
+        gene_cluster_start <- prev_gene_clusters[[i_cluster]]
+      }
 
       # Run scregclust
       scregclust(
@@ -47,6 +55,9 @@ biclust <- function(max_iter=50,
         verbose                = FALSE,
         max_optim_iter         = 100000,
       ) -> out_list[[i_cluster]]
+
+      #store gene clustering for next iteration
+    prev_gene_clusters[[i_cluster]] <- out_list[[i_cluster]]$results[[1]]$output[[1]]$cluster
     }
 
 
@@ -115,7 +126,7 @@ biclust <- function(max_iter=50,
     for(prev_clustering in ((i_main-1):0) ){
       print(paste0('Comparing with iteration ', prev_clustering))
       if(RI(updated_cell_clust,cell_cluster_history[,prev_clustering + initial_column_padding]) == 1){
-        print("Cell clustering from iteration  same as some previous iteration. Exiting.")
+        print("Cell clustering from iteration same as some previous iteration. Exiting.")
         print(paste0("RI of ",
                      RI(updated_cell_clust, cell_cluster_history[,prev_clustering + initial_column_padding]),
                      " when comparing iteration ", i_main," to iteration ", prev_clustering))
