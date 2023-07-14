@@ -1,6 +1,7 @@
 library(ggplot2)
 library(ggalluvial)
 library(reshape2)
+library(aricode)  # To calculate rand index
 
 plot_cluster_history <- function(cell_cluster_history){
 
@@ -9,6 +10,8 @@ plot_cluster_history <- function(cell_cluster_history){
   d <- melt(d, id.vars="Cell ID")
   colnames(d) <- c("cell", "iteration", "cluster")
   d['cluster'] <- as.factor(d[, 'cluster'])
+
+  rand_ind <- RI(cell_cluster_history[,2],cell_cluster_history[,ncol(cell_cluster_history)])
 
   # Plotting it
   # Slow. But keeps track of individual cells
@@ -28,6 +31,6 @@ plot_cluster_history <- function(cell_cluster_history){
     xlab("Iteration") +
     labs(fill="Cluster") +
     theme(legend.position = "bottom") +
-    ggtitle("Log of cluster allocation")
+    ggtitle(paste0("Log of cluster allocation \n Rand index of initial vs final:"),round(rand_ind,2))
 
 }

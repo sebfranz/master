@@ -136,6 +136,9 @@ biclust <- function(max_iter=50,
     }
 
     if(stop_iterating_flag == T){
+      #clean up cluster history
+      cell_cluster_history <- cell_cluster_history[,1:which(is.na(cell_cluster_history[1,]))-1]
+      #stop iterations
       break
     }
 
