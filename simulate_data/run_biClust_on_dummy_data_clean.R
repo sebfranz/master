@@ -37,7 +37,12 @@ cell_cluster_history <- cbind(res$initial_cell_clust, res$disturbed_initial_cell
 colnames(cell_cluster_history) <- c("True allocation", "Disturbed allocation")
 
 res <- biclust(max_iter=50,
-        initial_cluster_history = cell_cluster_history,
-        train_dat = res$train_dat)
+               initial_cluster_history = cell_cluster_history,
+               n_target_genes = n_target_genes,
+               n_regulator_genes = n_regulator_genes,
+               n_target_gene_clusters = n_target_gene_clusters,
+               n_cells = n_cells,
+               train_dat = res$train_dat)
+
 
 plot_cluster_history(cell_cluster_history = res$cell_cluster_history)

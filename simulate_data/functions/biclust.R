@@ -143,7 +143,7 @@ biclust <- function(max_iter=50,
 
     if(stop_iterating_flag == T){
       # Clean up cluster history
-      cell_cluster_history <- cell_cluster_history[,1:which(is.na(cell_cluster_history[1,]))-1]
+      cell_cluster_history <- cell_cluster_history[ , colSums(is.na(cell_cluster_history))==0]
       # Stop iterations/exit function
       break
     }

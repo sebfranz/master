@@ -6,7 +6,7 @@ library(aricode)  # To calculate rand index
 plot_cluster_history <- function(cell_cluster_history){
 
   d <- cell_cluster_history
-  d <- d[ , colSums(is.na(d))==0]
+  d <- d[ , colSums(is.na(d))==0]  # Remove NA data
   d <- melt(d, id.vars="Cell ID")
   colnames(d) <- c("cell", "iteration", "cluster")
   d['cluster'] <- as.factor(d[, 'cluster'])
