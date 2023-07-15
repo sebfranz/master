@@ -4,11 +4,17 @@ library(aricode)  # To calculate rand index
 
 biclust <- function(max_iter=50,
                     initial_cluster_history,
+                    n_target_genes = 40,     #needed
+                    n_regulator_genes = 20,  #needed
+                    n_target_gene_clusters = c(3,4,5),  #also necessary
+                    n_cells = c(1000,5000,10000),
                     train_dat){
 
+  #pre-setup
+  total_n_cells = sum(n_cells)
 
   # Preallocate memory
-  initial_column_padding <- ncol(initial_cluster_history) + 1  # +1 Because we have an index column that is not an index column
+  initial_column_padding <- ncol(initial_cluster_history) + 1  # +1 Because we have an index column that is not an index column it's an ID column
   cell_cluster_history <- data.frame(matrix(NA, nrow = nrow(initial_cluster_history), ncol = max_iter + initial_column_padding))
   colnames(cell_cluster_history) <- c("Cell ID", colnames(initial_cluster_history), paste0("Iteration ", 1:max_iter))
   cell_cluster_history[, 'Cell ID'] <-1:nrow(initial_cluster_history)  # Set cell names
@@ -46,7 +52,7 @@ biclust <- function(max_iter=50,
       # Run scregclust
       scregclust(
         expression             = local_dat,  # p rows of genes and n columns of cells of single cell expression data
-        split_indices          = cell_data_split,  # Train/test data split indicated by 1s and 2s
+        split_indices          = cell_data_split,  # Train/test data split indicated by 1s and 2s\
         genesymbols            = paste0('g', 1:(n_target_genes+n_regulator_genes)),  # Gene row names
         is_regulator           = (1:(n_target_genes+n_regulator_genes) > n_target_genes) + 0,  # Vectorindicating which genes are regulators
         n_cl                   = n_target_gene_clusters[i_cluster],
