@@ -16,7 +16,10 @@ biclust <- function(max_iter=50,
   total_n_cells = sum(n_cells)
 
   # Preallocate memory
-  if(!is.matrix(initial_cluster_history)){initial_cluster_history <- as.matrix(initial_cluster_history)}
+  if(!is.matrix(initial_cluster_history)){
+    initial_cluster_history <- as.matrix(initial_cluster_history)
+    colnames(initial_cluster_history) <- c("initial")
+  }
 
   initial_column_padding <- ncol(initial_cluster_history) + 1  # +1 Because we have an index column that is not an index column it's an ID column
   cell_cluster_history <- data.frame(matrix(NA, nrow = nrow(initial_cluster_history), ncol = max_iter + initial_column_padding))
@@ -63,7 +66,7 @@ biclust <- function(max_iter=50,
         target_cluster_start   = target_gene_cluster_start,
         penalization           = 0.14,
         verbose                = FALSE,
-        max_optim_iter         = 100000,
+        max_optim_iter         = 100,
       ) -> out_list[[i_cluster]]
 
     # Store gene clustering for next iteration
