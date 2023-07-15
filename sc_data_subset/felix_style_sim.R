@@ -16,6 +16,7 @@ felix_style_sim <- function(mn_g1,
                             num_clusters,
                             group_mean_min = 0.01,
                             group_mean_max = 0.1,
+                            sigma_of_betas = 0.1,
                             sel_corr_idx = NA#optional selection of regulator genes, important if calling several times and planning to append (union)
                             ){
   # Assume there are 5 true clusters in the data
@@ -54,7 +55,7 @@ felix_style_sim <- function(mn_g1,
   k_true <- rep(seq_len(n_cl), each = n_target / n_cl)
 
   # Generate coefficients for each target gene
-  sigma_beta <- 0.1
+  sigma_beta <- sigma_of_betas
   beta_og <- mapply(function(i, m_vec, s_vec) {
     # beta_og_pre <- mapply(function(i, m_vec, s_vec) {
     t(mapply(
@@ -126,6 +127,7 @@ res1 <- felix_style_sim(mn_g1 = mn_g1 ,
                 num_clusters = 1,
                 group_mean_min = 0.01,
                 group_mean_max = 0.033,
+                sigma_of_betas = 0.1,
                 sel_corr_idx = sel_corr_idx#optional selection of regulator genes, important if calling several times and planning to append (union)
 )
 res2 <- felix_style_sim(mn_g1 = mn_g1 ,
@@ -134,6 +136,7 @@ res2 <- felix_style_sim(mn_g1 = mn_g1 ,
                         num_clusters = 2,
                         group_mean_min = 0.033,
                         group_mean_max = 0.066,
+                        sigma_of_betas = 1,
                         sel_corr_idx = sel_corr_idx#optional selection of regulator genes, important if calling several times and planning to append (union)
 )
 res3 <- felix_style_sim(mn_g1 = mn_g1 ,
@@ -142,6 +145,7 @@ res3 <- felix_style_sim(mn_g1 = mn_g1 ,
                         num_clusters = 4,
                         group_mean_min = 0.066,
                         group_mean_max = 0.1,
+                        sigma_of_betas = 10,
                         sel_corr_idx = sel_corr_idx#optional selection of regulator genes, important if calling several times and planning to append (union)
 )
 
