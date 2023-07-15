@@ -14,6 +14,8 @@ felix_style_sim <- function(mn_g1,
                             number_regulators = NA, #only applicable if NOT including sel_corr_idx
                             num_targets = 200,
                             num_clusters,
+                            group_mean_min = 0.01,
+                            group_mean_max = 0.1,
                             sel_corr_idx = NA#optional selection of regulator genes, important if calling several times and planning to append (union)
                             ){
   # Assume there are 5 true clusters in the data
@@ -44,7 +46,8 @@ felix_style_sim <- function(mn_g1,
   )
 
   # Simulate group means on a uniform scale
-  grp_means <- lapply(reg_idx, function(idx) runif(length(idx), 0.01, 0.1))
+  grp_means <- lapply(reg_idx, function(idx) runif(length(idx),
+                                                   group_mean_min, group_mean_max))
 
   # Simulate cluster sizes (make them all equal size for now)
   n_target <- num_targets
@@ -121,18 +124,24 @@ res1 <- felix_style_sim(mn_g1 = mn_g1 ,
                 number_regulators = NA, #only applicable if NOT including sel_corr_idx
                 num_targets = 200,
                 num_clusters = 1,
+                group_mean_min = 0.01,
+                group_mean_max = 0.033,
                 sel_corr_idx = sel_corr_idx#optional selection of regulator genes, important if calling several times and planning to append (union)
 )
 res2 <- felix_style_sim(mn_g1 = mn_g1 ,
                         number_regulators = NA, #only applicable if NOT including sel_corr_idx
                         num_targets = 200,
                         num_clusters = 2,
+                        group_mean_min = 0.033,
+                        group_mean_max = 0.066,
                         sel_corr_idx = sel_corr_idx#optional selection of regulator genes, important if calling several times and planning to append (union)
 )
 res3 <- felix_style_sim(mn_g1 = mn_g1 ,
                         number_regulators = NA, #only applicable if NOT including sel_corr_idx
                         num_targets = 200,
                         num_clusters = 4,
+                        group_mean_min = 0.066,
+                        group_mean_max = 0.1,
                         sel_corr_idx = sel_corr_idx#optional selection of regulator genes, important if calling several times and planning to append (union)
 )
 
@@ -172,8 +181,8 @@ colnames(cell_cluster_history) <- c("True allocation", "Disturbed allocation")
 #run biclust
 
 execution_path <- dirname(rstudioapi::getSourceEditorContext()$path)
-source(paste0(execution_path,"/../simulate_data/functions/biclust.R"))
-source(paste0(execution_path,"/../simulate_data/functions/plot_cluster_history.R"))
+source(paste0(execution_path,"/../functions/biclust.R"))
+source(paste0(execution_path,"/../functions/plot_cluster_history.R"))
 
 res <- biclust(max_iter=50,
                initial_cluster_history = cell_cluster_history,
