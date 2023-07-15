@@ -5,8 +5,8 @@ library(aricode)  # To calculate rand index
 
 execution_path <- dirname(rstudioapi::getSourceEditorContext()$path)
 source(paste0(execution_path,"/functions/generate_dummy_data_for_cell_clustering.R"))
-source(paste0(execution_path,"/functions/biclust.R"))
-source(paste0(execution_path,"/functions/plot_cluster_history.R"))
+source(paste0(execution_path,"/../functions/biclust.R"))
+source(paste0(execution_path,"/../functions/plot_cluster_history.R"))
 
 set.seed(1234)  # This seed crashes due to scregclust producing NULL in all target gene clusters in the only cell cluster left
 
