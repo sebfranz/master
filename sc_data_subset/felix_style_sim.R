@@ -93,14 +93,14 @@ felix_style_sim <- function(mn_g1,
   # apply(mn_target_scaled, 2, sd)
 
   expression <- t(cbind(mn_target, mn_g1))
-
+  is_regulator <- c(rep(0,ncol(mn_target)),rep(1,ncol(mn_g1)))
   # Without prior information gene symbols do not matter.
   # However, we have to supply them.
   genesymbols <- c(
     sprintf("T%d", seq_len(n_target)),
     sprintf("R%d", seq_len(n_reg))
   )
-  is_regulator <- c(rep.int(0, n_target), rep.int(1, n_reg))
+  # is_regulator <- c(rep.int(0, n_target), rep.int(1, n_reg))
   return(list(expression=as.data.frame(expression),
               genesymbols = genesymbols,
               is_regulator = is_regulator
@@ -190,8 +190,7 @@ source(paste0(execution_path,"/../functions/plot_cluster_history.R"))
 
 res <- biclust(max_iter=50,
                initial_cluster_history = cell_cluster_history,
-               n_target_genes = sum(res1$is_regulator==0),
-               n_regulator_genes = sum(res1$is_regulator==1),
+               is_regulator = is_regulator,
                n_target_gene_clusters = c(1,2,4),
                n_cells = c(cells_per_cluster,cells_per_cluster,cells_per_cluster),
                train_dat = as.matrix(res))

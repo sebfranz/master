@@ -4,16 +4,20 @@ library(aricode)  # To calculate rand index
 
 biclust <- function(max_iter=50,
                     initial_cluster_history,
-                    n_target_genes = 40,     #needed
-                    n_regulator_genes = 20,  #needed
+                    is_regulator, #input dataset has to have rows sorted so that targets are highest
                     n_target_gene_clusters = c(3,4,5),  #also necessary
                     n_cells = c(1000,5000,10000),
                     train_dat){
 
   #pre-setup
+  n_cell_clusters <- length(n_cells)
+  n_target_genes = sum(is_regulator==0)
+  n_regulator_genes = sum(is_regulator==1)
   total_n_cells = sum(n_cells)
 
   # Preallocate memory
+  if(!is.matrix(initial_cluster_history)){initial_cluster_history <- as.matrix(initial_cluster_history)}
+
   initial_column_padding <- ncol(initial_cluster_history) + 1  # +1 Because we have an index column that is not an index column it's an ID column
   cell_cluster_history <- data.frame(matrix(NA, nrow = nrow(initial_cluster_history), ncol = max_iter + initial_column_padding))
   colnames(cell_cluster_history) <- c("Cell ID", colnames(initial_cluster_history), paste0("Iteration ", 1:max_iter))
