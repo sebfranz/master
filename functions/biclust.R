@@ -97,6 +97,7 @@ biclust <- function(max_iter=50,
       # yvals expression of target cells
       xvals <- train_dat[(1:(n_target_genes+n_regulator_genes) > n_target_genes), which(prev_cell_clust == i_cell_cluster)]
       yvals <-  train_dat[(1:(n_target_genes+n_regulator_genes) <= n_target_genes), which(prev_cell_clust == i_cell_cluster)]
+      yvals <- as.matrix(yvals, nrow=length(yvals), ncol=length(which(prev_cell_clust == i_cell_cluster)))
       i_total_target_geneclusters <- 0
       for(ii_cell_cluster in 1:n_cell_clusters){
         clustering <- out_list[[ii_cell_cluster]]$results[[1]]$output[[1]]$cluster[1:n_target_genes]
@@ -109,9 +110,13 @@ biclust <- function(max_iter=50,
             target_gene_cluster_yvals <- yvals[target_gene_ids_in_cluster_i,]
             SST <- (target_gene_cluster_yvals - mean(target_gene_cluster_yvals))**2
             SST <- as.matrix(SST, nrow=length(target_gene_ids_in_cluster_i), ncol=ncol(target_gene_cluster_yvals))
+            # print(paste("n", ncol(target_gene_cluster_yvals)))
+            # print(paste("K", nrow(xvals)))
+            # SST_sum_adjusted <- sum(SST)/(ncol(target_gene_cluster_yvals) - nrow(xvals))
             SSR <- (target_gene_cluster_yvals- t(betas_for_gene_cluster_i) %*% xvals)**2
             SSR <- as.matrix(SSR, nrow=length(target_gene_ids_in_cluster_i), ncol=ncol(target_gene_cluster_yvals))
-            r2[i_total_target_geneclusters, prev_cell_clust == i_cell_cluster] <- 1 - colSums(SST)/sum(SSR)
+            # SSR_sum_adjusted <- colSums(SSR)/(ncol(target_gene_cluster_yvals) - 1)
+            r2[i_total_target_geneclusters, prev_cell_clust == i_cell_cluster] <- 1 - colSums(SSR)/sum(SST)
             MSE[i_total_target_geneclusters, prev_cell_clust == i_cell_cluster] <- colMeans(SSR)
             }
         }
