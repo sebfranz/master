@@ -8,7 +8,6 @@ library(scregclust)
 library('Seurat')
 library(Matrix)
 
-execution_path <- dirname(rstudioapi::getSourceEditorContext()$path)
 source(paste0(execution_path,"/../functions/biclust.R"))
 source(paste0(execution_path,"/../functions/plot_cluster_history.R"))
 
@@ -16,10 +15,10 @@ neftel_path <- paste0(execution_path, '/../../datasets_sctargettranslator/Neftel
 Neftel_g1 <- readRDS(file = paste0(neftel_path, '/r_files/', "neftel_seurat_group1"))
 
 
-p1 <- DimPlot(Neftel_g1,reduction = "umap", group.by='malignant')
-p1
+# p1 <- DimPlot(Neftel_g1,reduction = "umap", group.by='malignant')
+# p1
 
-Neftel_g1<-SetIdent(Neftel_g1, value='malignant')
+# Neftel_g1<-SetIdent(Neftel_g1, value='malignant')
 Neftel_g1_malignant<-subset(Neftel_g1, idents='yes')
 
 z_g1<-GetAssayData(Neftel_g1_malignant, slot='scale.data')

@@ -3,6 +3,7 @@ execution_path <- dirname(rstudioapi::getSourceEditorContext()$path)
 setwd(execution_path)
 # neftel_path <- paste0(execution_path, '/../../datasets_sctargettranslator/Neftel2019')
 # setwd(neftel_path)
+set.seed(1)
 
 library(scregclust)
 library('Seurat')
@@ -109,19 +110,40 @@ felix_style_sim <- function(mn_g1,
 
 #loads mn_g1
 #cells are rows genes are columns
-source(paste0(execution_path,"/../sc_data/setup.R"))
+source(paste0(execution_path,"/../functions/biclust.R"))
+source(paste0(execution_path,"/../functions/plot_cluster_history.R"))
 
-dim(mn_g1)
+neftel_path <- paste0(execution_path, '/../../datasets_sctargettranslator/Neftel2019')
+Neftel_g1 <- readRDS(file = paste0(neftel_path, '/r_files/', "neftel_seurat_group1"))
 
-mn_g1 <- t(mn_g1) #now cells are cols genes are row
 
-n_reg <- 100
+# p1 <- DimPlot(Neftel_g1,reduction = "umap", group.by='malignant')
+# p1
 
-sel_corr_idx <- sample(nrow(mn_g1), n_reg)
+Neftel_g1<-SetIdent(Neftel_g1, value='malignant')
+Neftel_g1_malignant<-subset(Neftel_g1, idents='yes')
+
+z_g1<-GetAssayData(Neftel_g1_malignant, slot='scale.data')
+dim(z_g1)
+metaData<-Neftel_g1_malignant@meta.data$sample
+
+out<-scregclust_format(z_g1)
+
+genesymbols<-out[[1]]
+sample_assignment<-out[[2]]
+is_predictor<-out[[3]]
+
+z_g1 <- z_g1[order(is_predictor),]
+is_predictor <- is_predictor[order(is_predictor)]
+
+#now cells are cols genes are row
+dim(z_g1)
+
+sel_corr_idx <- which(is_predictor == 1)
 
 set.seed(10)
 
-res1 <- felix_style_sim(mn_g1 = mn_g1 ,
+res1 <- felix_style_sim(mn_g1 = z_g1 ,
                 number_regulators = NA, #only applicable if NOT including sel_corr_idx
                 num_targets = 200,
                 num_clusters = 1,
@@ -130,7 +152,7 @@ res1 <- felix_style_sim(mn_g1 = mn_g1 ,
                 sigma_of_betas = 0.1,
                 sel_corr_idx = sel_corr_idx#optional selection of regulator genes, important if calling several times and planning to append (union)
 )
-res2 <- felix_style_sim(mn_g1 = mn_g1 ,
+res2 <- felix_style_sim(mn_g1 = z_g1 ,
                         number_regulators = NA, #only applicable if NOT including sel_corr_idx
                         num_targets = 200,
                         num_clusters = 2,
@@ -139,7 +161,7 @@ res2 <- felix_style_sim(mn_g1 = mn_g1 ,
                         sigma_of_betas = 1,
                         sel_corr_idx = sel_corr_idx#optional selection of regulator genes, important if calling several times and planning to append (union)
 )
-res3 <- felix_style_sim(mn_g1 = mn_g1 ,
+res3 <- felix_style_sim(mn_g1 = z_g1 ,
                         number_regulators = NA, #only applicable if NOT including sel_corr_idx
                         num_targets = 200,
                         num_clusters = 4,
