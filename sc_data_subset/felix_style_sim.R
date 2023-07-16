@@ -25,6 +25,7 @@ felix_style_sim <- function(mn_g1,
 
   if(all(!is.na(sel_corr_idx))){
     mn_g1 <- t(mn_g1[sel_corr_idx, ]) #picks out genes from rows and transposes
+    n_reg <- length(sel_corr_idx) #used later
   }else{
 
     #number of regulators to keep
@@ -146,7 +147,7 @@ set.seed(10)
 res1 <- felix_style_sim(mn_g1 = z_g1 ,
                 number_regulators = NA, #only applicable if NOT including sel_corr_idx
                 num_targets = 200,
-                num_clusters = 1,
+                num_clusters = 2,
                 group_mean_min = 0.01,
                 group_mean_max = 0.033,
                 sigma_of_betas = 0.1,
@@ -155,7 +156,7 @@ res1 <- felix_style_sim(mn_g1 = z_g1 ,
 res2 <- felix_style_sim(mn_g1 = z_g1 ,
                         number_regulators = NA, #only applicable if NOT including sel_corr_idx
                         num_targets = 200,
-                        num_clusters = 2,
+                        num_clusters = 3,
                         group_mean_min = 0.033,
                         group_mean_max = 0.066,
                         sigma_of_betas = 1,
@@ -173,8 +174,9 @@ res3 <- felix_style_sim(mn_g1 = z_g1 ,
 
 dim(res1$expression)
 
-res1$is_regulator
-
+length(res1$is_regulator)
+length(res2$is_regulator)
+length(res3$is_regulator)
 #set things up
 n_cell_clusters <- 3
 
@@ -210,10 +212,10 @@ execution_path <- dirname(rstudioapi::getSourceEditorContext()$path)
 source(paste0(execution_path,"/../functions/biclust.R"))
 source(paste0(execution_path,"/../functions/plot_cluster_history.R"))
 
-res <- biclust(max_iter=50,
+biclust_res <- biclust(max_iter=50,
                initial_cluster_history = cell_cluster_history,
-               is_regulator = is_regulator,
-               n_target_gene_clusters = c(1,2,4),
+               is_regulator = res3$is_regulator,
+               n_target_gene_clusters = c(2,3,4),
                n_cells = c(cells_per_cluster,cells_per_cluster,cells_per_cluster),
                train_dat = as.matrix(res))
 
