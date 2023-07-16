@@ -4,7 +4,16 @@ library(aricode)  # To calculate rand index
 
 cluster_update <- function(metrics, n_cell_clusters, n_target_gene_clusters){
   # Minimises input matrix
-  rep(1:n_cell_clusters, n_target_gene_clusters)[apply(metrics, 2, which.min)]
+  average_for_cell_cluster = TRUE
+  if (average_for_cell_cluster){
+    d <- aggregate(metrics, list(rep(1:n_cell_clusters, n_target_gene_clusters)), FUN=function(x) mean(x, na.rm = TRUE))
+    d <- as.matrix(d)
+    d <- d[, 2:ncol(d)]
+    d <- as.vector(apply(d, 2, which.min))
+  }else{
+    d <- rep(1:n_cell_clusters, n_target_gene_clusters)[apply(metrics, 2, which.min)]
+  }
+  return(d)
 }
 
 biclust <- function(max_iter=50,
@@ -113,11 +122,16 @@ biclust <- function(max_iter=50,
             SST <- as.matrix(SST, nrow=length(target_gene_ids_in_cluster_i), ncol=ncol(target_gene_cluster_yvals))
             # print(paste("n", ncol(target_gene_cluster_yvals)))
             # print(paste("K", nrow(xvals)))
-            # SST_sum_adjusted <- sum(SST)/(ncol(target_gene_cluster_yvals) - nrow(xvals))
+            SST_sum_adjusted <- sum(SST)/(ncol(target_gene_cluster_yvals) - nrow(xvals))
             SSR <- (target_gene_cluster_yvals- t(betas_for_gene_cluster_i) %*% xvals)**2
             SSR <- as.matrix(SSR, nrow=length(target_gene_ids_in_cluster_i), ncol=ncol(target_gene_cluster_yvals))
-            # SSR_sum_adjusted <- colSums(SSR)/(ncol(target_gene_cluster_yvals) - 1)
-            r2[i_total_target_geneclusters, prev_cell_clust == i_cell_cluster] <- 1 - colSums(SSR)/sum(SST)
+            SSR_sum_adjusted <- colSums(SSR)/(ncol(target_gene_cluster_yvals) - 1)
+            # We promote a cell's own cell cluster by not using adjusted r2 for it.
+            if(i_cell_cluster==ii_cell_cluster){
+              r2[i_total_target_geneclusters, prev_cell_clust == i_cell_cluster] <- colSums(SSR)/sum(SST)
+            }else{
+              r2[i_total_target_geneclusters, prev_cell_clust == i_cell_cluster] <- 1 - SSR_sum_adjusted/SST_sum_adjusted
+            }
             MSE[i_total_target_geneclusters, prev_cell_clust == i_cell_cluster] <- colMeans(SSR)
             }
         }
@@ -144,12 +158,12 @@ biclust <- function(max_iter=50,
     # If there is only 1 cell left in a cell cluster it doesn't work
     # Move that cell to the biggest cell cluster.
     updated_cell_clust_table = data.frame(table(updated_cell_clust))
+
     for(i_cell_cluster in 1:n_cell_clusters){
       if (length(which(updated_cell_clust==i_cell_cluster)) == 1){
         updated_cell_clust[which(updated_cell_clust==i_cell_cluster)] = which.max(updated_cell_clust_table$Freq)
       }
     }
-
 
     # Update data in cell_cluster_history
     cell_cluster_history[, i_main + initial_column_padding] <- updated_cell_clust

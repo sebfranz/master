@@ -9,7 +9,8 @@ generate_dummy_data_for_cell_clustering <- function(
     n_regulator_genes = 20,
     n_cells = c(1000,5000,10000),
     regulator_means = c(1,2,3),  # For generating dummy data, regulator mean in each cell cluster
-    coefficient_means = list(c(1,20,30), c(1,2,3,4), c(1,2,3,4,5))  # For generating dummy data, coefficient means in each cell cluster
+    coefficient_means = list(c(1,20,30), c(1,2,3,4), c(1,2,3,4,5)),  # For generating dummy data, coefficient means in each cell cluster
+    disturbed_fraction=0.1  # Value between 0 and 1. How large portion of cells should move to other cell clusters.
 ){
 
   # Set variables ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -57,7 +58,7 @@ generate_dummy_data_for_cell_clustering <- function(
   disturbed_initial_cell_clust <- initial_cell_clust
   for(i_cluster in 1:n_cell_clusters){
     indexes_of_cluster <- which(initial_cell_clust == i_cluster)
-    some_of_those_indexes <- sample(indexes_of_cluster, size=as.integer(length(indexes_of_cluster)*0.01), replace = F)
+    some_of_those_indexes <- sample(indexes_of_cluster, size=as.integer(length(indexes_of_cluster)*disturbed_fraction), replace = F)
     disturbed_initial_cell_clust[some_of_those_indexes] <- sample(c(1:n_cell_clusters)[-i_cluster], size=length(some_of_those_indexes), replace=T)
   }
 
