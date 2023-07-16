@@ -2,6 +2,7 @@ rm(list = ls())
 execution_path <- dirname(rstudioapi::getSourceEditorContext()$path)
 # neftel_path <- paste0(execution_path, '/../../datasets_sctargettranslator/Neftel2019')
 # setwd(neftel_path)
+set.seed(1)
 
 library(scregclust)
 library('Seurat')

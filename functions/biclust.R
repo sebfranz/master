@@ -61,12 +61,12 @@ biclust <- function(max_iter=50,
         expression             = local_dat,  # p rows of genes and n columns of cells of single cell expression data
         split_indices          = cell_data_split,  # Train/test data split indicated by 1s and 2s\
         genesymbols            = paste0('g', 1:(n_target_genes+n_regulator_genes)),  # Gene row names
-        is_regulator           = (1:(n_target_genes+n_regulator_genes) > n_target_genes) + 0,  # Vectorindicating which genes are regulators
+        is_regulator           = is_regulator,  # Vectorindicating which genes are regulators
         n_cl                   = n_target_gene_clusters[i_cluster],
         target_cluster_start   = target_gene_cluster_start,
         penalization           = 0.14,
         verbose                = FALSE,
-        max_optim_iter         = 100,
+        max_optim_iter         = 1000,
       ) -> out_list[[i_cluster]]
 
     # Store gene clustering for next iteration
@@ -87,6 +87,7 @@ biclust <- function(max_iter=50,
 
 
     MSE <- matrix(nrow=sum(n_target_gene_clusters), ncol=total_n_cells)
+    r2 <- matrix(nrow=sum(n_target_gene_clusters), ncol=total_n_cells)
     for(i_cell_cluster in 1:n_cell_clusters){
       # Expression of all cells
       # xvals expression of regulator cells
@@ -102,11 +103,21 @@ biclust <- function(max_iter=50,
           betas_for_gene_cluster_i <- out_list[[ii_cell_cluster]]$results[[1]]$output[[1]]$coeffs[[i_target_gene_cluster]]
           # If no target gene was assigned to this cluster we need to do something else
           if(!is.null(betas_for_gene_cluster_i)) {
-            MSE[i_total_target_geneclusters, prev_cell_clust == i_cell_cluster] <- colMeans((yvals[target_gene_ids_in_cluster_i,] - t(betas_for_gene_cluster_i) %*% xvals)**2)
-          }
+            target_gene_cluster_yvals <- yvals[target_gene_ids_in_cluster_i,]
+            SST <- (target_gene_cluster_yvals - mean(target_gene_cluster_yvals))**2
+            SST <- as.matrix(SST, nrow=length(target_gene_ids_in_cluster_i), ncol=ncol(target_gene_cluster_yvals))
+            SSR <- (yvals[target_gene_ids_in_cluster_i,] - t(betas_for_gene_cluster_i) %*% xvals)**24
+            SSR <- as.matrix(SSR, nrow=length(target_gene_ids_in_cluster_i), ncol=ncol(target_gene_cluster_yvals))
+            r2[i_total_target_geneclusters, prev_cell_clust == i_cell_cluster] <- 1 - colSums(SST)/colSums(SSR)
+            MSE[i_total_target_geneclusters, prev_cell_clust == i_cell_cluster] <- colMeans(SSR)
+            }
         }
       }
     }
+
+    print("R2----------")
+    print((data.frame(r2[,1:7])))
+    print("------------")
 
     # Update cluster allocation to the appropriate cell cluster -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
