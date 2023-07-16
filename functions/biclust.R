@@ -2,8 +2,8 @@ library(scregclust)
 library(plyr)
 library(aricode)  # To calculate rand index
 
-cluster_update <- function(metrics){
-  #minimises input matrix
+cluster_update <- function(metrics, n_cell_clusters, n_target_gene_clusters){
+  # Minimises input matrix
   rep(1:n_cell_clusters, n_target_gene_clusters)[apply(metrics, 2, which.min)]
 }
 
@@ -48,10 +48,9 @@ biclust <- function(max_iter=50,
     for(i_cluster in 1:n_cell_clusters){
       # Get data for cell cluster i_cluster specifically
       local_dat <- train_dat[,which(prev_cell_clust == i_cluster)]
-
+      # local_dat <- as.matrix(local_dat, nrow=, ncol=length(which(prev_cell_clust == i_cluster)))
       # Training data are represented by 1 and test data by 2
       cell_data_split    <- sample(c(1,2),ncol(local_dat), replace = T)
-
       # The first iteration we initialize with kmeans, later iterations we start with
       # the same gene clustering as last time, possibly more efficient.
       if(i_main == 1){
@@ -60,7 +59,6 @@ biclust <- function(max_iter=50,
       } else {
         target_gene_cluster_start <- prev_target_gene_clusters[[i_cluster]]
       }
-
       # Run scregclust
       scregclust(
         expression             = local_dat,  # p rows of genes and n columns of cells of single cell expression data
@@ -135,10 +133,19 @@ biclust <- function(max_iter=50,
     if (all(is.na(MSE))){
       stop("scregclust put everything in noise cluster for all cellclusters. Exiting.")
     }
-    updated_cell_clust <-  cluster_update(-r2)
+    updated_cell_clust <-  cluster_update(-r2, n_cell_clusters, n_target_gene_clusters)
+
+    # If there is only 1 cell left in a cell cluster it doesn't work
+    # Move that cell to the biggest cell cluster.
+    updated_cell_clust_table = data.frame(table(updated_cell_clust))
+    for(i_cell_cluster in 1:n_cell_clusters){
+      if (length(which(updated_cell_clust==i_cell_cluster)) == 1){
+        updated_cell_clust[which(updated_cell_clust==i_cell_cluster)] = which.max(updated_cell_clust_table$Freq)
+      }
+    }
+
 
     # Update data in cell_cluster_history
-    # skip
     cell_cluster_history[, i_main + initial_column_padding] <- updated_cell_clust
 
     # Cross tabulation of clusters
