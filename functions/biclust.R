@@ -106,7 +106,7 @@ biclust <- function(max_iter=50,
             target_gene_cluster_yvals <- yvals[target_gene_ids_in_cluster_i,]
             SST <- (target_gene_cluster_yvals - mean(target_gene_cluster_yvals))**2
             SST <- as.matrix(SST, nrow=length(target_gene_ids_in_cluster_i), ncol=ncol(target_gene_cluster_yvals))
-            SSR <- (yvals[target_gene_ids_in_cluster_i,] - t(betas_for_gene_cluster_i) %*% xvals)**24
+            SSR <- (target_gene_cluster_yvals- t(betas_for_gene_cluster_i) %*% xvals)**2
             SSR <- as.matrix(SSR, nrow=length(target_gene_ids_in_cluster_i), ncol=ncol(target_gene_cluster_yvals))
             r2[i_total_target_geneclusters, prev_cell_clust == i_cell_cluster] <- 1 - colSums(SST)/colSums(SSR)
             MSE[i_total_target_geneclusters, prev_cell_clust == i_cell_cluster] <- colMeans(SSR)
