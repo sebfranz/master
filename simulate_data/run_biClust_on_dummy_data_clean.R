@@ -38,11 +38,9 @@ colnames(cell_cluster_history) <- c("True allocation", "Disturbed allocation")
 
 res <- biclust(max_iter=50,
                initial_cluster_history = cell_cluster_history,
-               n_target_genes = n_target_genes,
-               n_regulator_genes = n_regulator_genes,
+               is_regulator = c(rep(0,n_target_genes),rep(1,n_regulator_genes)),
                n_target_gene_clusters = n_target_gene_clusters,
                n_cells = n_cells,
                train_dat = res$train_dat)
-
 
 plot_cluster_history(cell_cluster_history = res$cell_cluster_history)
