@@ -108,6 +108,7 @@ biclust <- function(max_iter=50,
           # If no target gene was assigned to this cluster we need to do something else
           if(!is.null(betas_for_gene_cluster_i)) {
             target_gene_cluster_yvals <- yvals[target_gene_ids_in_cluster_i,]
+            target_gene_cluster_yvals <- matrix(target_gene_cluster_yvals, nrow=length(target_gene_ids_in_cluster_i), ncol=length(which(prev_cell_clust == i_cell_cluster)))
             SST <- (target_gene_cluster_yvals - mean(target_gene_cluster_yvals))**2
             SST <- as.matrix(SST, nrow=length(target_gene_ids_in_cluster_i), ncol=ncol(target_gene_cluster_yvals))
             # print(paste("n", ncol(target_gene_cluster_yvals)))
