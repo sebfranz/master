@@ -8,7 +8,8 @@ generate_biclust_data_from_sampled_regulators <- function(
     n_target_gene_clusters = c(3,4,5),  # Number of target gene clusters in each cell cluster
     regulator_expression_offset =  c(0,10,100),
     n_cells = c(1000,5000,10000),
-    coefficient_means = list(c(1,20,30), c(1,2,3,4), c(1,2,3,4,5))  # For generating dummy data, coefficient means in each cell cluster
+    coefficient_means = list(c(1,20,30), c(1,2,3,4), c(1,2,3,4,5)),  # For generating dummy data, coefficient means in each cell cluster
+    regulator_expression
 ){
 
   # Set variables ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -20,11 +21,14 @@ generate_biclust_data_from_sampled_regulators <- function(
   dummy_data <- vector(mode = "list", length = n_cell_clusters)
   for(i_cluster in 1:n_cell_clusters){
     print(i_cluster)
-    dummy_data[[i_cluster]] <- generate_scregclust_data_from_sampled_regulators(n_target_genes,
-                                                                                n_cells = n_cells[i_cluster],
-                                                                                regulator_expression_offset = regulator_expression_offset[i_cluster],
-                                                                                n_target_gene_clusters = n_target_gene_clusters[i_cluster],
-                                                                                coefficient_mean = coefficient_means[[i_cluster]])
+    dummy_data[[i_cluster]] <- generate_scregclust_data_from_sampled_regulators(
+      n_target_genes,
+      n_cells = n_cells[i_cluster],
+      regulator_expression_offset = regulator_expression_offset[i_cluster],
+      n_target_gene_clusters = n_target_gene_clusters[i_cluster],
+      coefficient_mean = coefficient_means[[i_cluster]],
+      regulator_expression
+      )
   }
 
   # Create Z_r and Z_t from dummy data

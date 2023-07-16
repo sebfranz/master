@@ -20,7 +20,8 @@ generate_scregclust_data_from_sampled_regulators <- function(
     regulator_expression_offset = 0,
     n_cells  = 1000,             #number of cells
     n_target_gene_clusters  = 2,               #Number of target gene clusters
-    coefficient_mean = c(1,2) #mean coefficients in true  model, length n_target_gene_clusters
+    coefficient_mean = c(1,2), #mean coefficients in true  model, length n_target_gene_clusters
+    regulator_expression = NULL
 )
 {
   # Check arguments
@@ -43,31 +44,7 @@ generate_scregclust_data_from_sampled_regulators <- function(
     stop("coefficient_mean must be a vector of positive numbers, and have length n_target_gene_clusters.")
   }
 
-  #load sampled data
-  execution_path <- dirname(rstudioapi::getActiveDocumentContext()$path)
-  neftel_path <- paste0(execution_path, '/../../../datasets_sctargettranslator/Neftel2019')
-  Neftel_g1 <- readRDS(file = paste0(neftel_path, '/r_files/', "neftel_seurat_group1"))
-
-  Neftel_g1<-SetIdent(Neftel_g1, value='malignant')
-  Neftel_g1_malignant<-subset(Neftel_g1, idents='yes')
-
-  z_g1<-GetAssayData(Neftel_g1_malignant, slot='scale.data')
-  dim(z_g1)
-  metaData<-Neftel_g1_malignant@meta.data$sample
-
-  out<-scregclust_format(z_g1)
-
-  genesymbols<-out[[1]]
-  sample_assignment<-out[[2]]
-  is_predictor<-out[[3]]
-
-  # z_g1 <- z_g1[order(is_predictor),]
-  # is_predictor <- is_predictor[order(is_predictor)]
-  regulator_expression <- t(z_g1[which(is_predictor == 1), ])
   n_regulator_genes <- ncol(regulator_expression)
-  rm(z_g1)
-  rm(Neftel_g1)
-  rm(Neftel_g1_malignant)
 
   diag_ <- function(vec)diag(x = vec, nrow = length(vec))
   # set.seed(3333) #To get a nice matrix
