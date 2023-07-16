@@ -2,6 +2,11 @@ library(scregclust)
 library(plyr)
 library(aricode)  # To calculate rand index
 
+cluster_update <- function(metrics){
+  #minimises input matrix
+  rep(1:n_cell_clusters, n_target_gene_clusters)[apply(metrics, 2, which.min)]
+}
+
 biclust <- function(max_iter=50,
                     initial_cluster_history,
                     is_regulator, #input dataset has to have rows sorted so that targets are highest
@@ -130,7 +135,7 @@ biclust <- function(max_iter=50,
     if (all(is.na(MSE))){
       stop("scregclust put everything in noise cluster for all cellclusters. Exiting.")
     }
-    updated_cell_clust <- rep(1:n_cell_clusters, n_target_gene_clusters)[apply(MSE, 2, which.min)]
+    updated_cell_clust <-  cluster_update(-r2)
 
     # Update data in cell_cluster_history
     # skip
