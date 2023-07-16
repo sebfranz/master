@@ -8,10 +8,6 @@ library(scregclust)
 library('Seurat')
 library(Matrix)
 
-#cells are rows genes are columns
-source(paste0(execution_path,"/setup.R"))
-dim(mn_g1)
-
 execution_path <- dirname(rstudioapi::getSourceEditorContext()$path)
 source(paste0(execution_path,"/../functions/biclust.R"))
 source(paste0(execution_path,"/../functions/plot_cluster_history.R"))
@@ -36,7 +32,6 @@ genesymbols<-out[[1]]
 sample_assignment<-out[[2]]
 is_predictor<-out[[3]]
 
-rm(mn_g1)
 z_g1 <- z_g1[order(is_predictor),]
 is_predictor <- is_predictor[order(is_predictor)]
 
