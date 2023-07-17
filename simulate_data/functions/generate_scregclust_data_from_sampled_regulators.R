@@ -16,14 +16,16 @@
 # Rows are cluster index.
 # Cols are target gene index.
 generate_scregclust_data_from_sampled_regulators <- function(
-    n_target_genes = 30,              #number of target genes
+    n_target_genes = 200,              #number of target genes
     regulator_expression_offset = 0,
-    n_cells  = 1000,             #number of cells
     n_target_gene_clusters  = 2,               #Number of target gene clusters
-    coefficient_mean = c(1,2), #mean coefficients in true  model, length n_target_gene_clusters
+    # coefficient_mean = c(1,2), #mean coefficients in true  model, length n_target_gene_clusters
+    coefficient_min = c(0.01,0.01),
+    coefficient_max = c(0.1,0.1),
     regulator_expression = NULL
 )
 {
+  n_cells = nrow(regulator_expression)
   # Check arguments
   check_positive_scalar <- function(x){
     if (!(length(x) == 1L &&
@@ -37,12 +39,12 @@ generate_scregclust_data_from_sampled_regulators <- function(
 
   check_positive_scalar(n_target_genes)
   # check_positive_scalar(n_regulator_genes)
-  check_positive_scalar(n_cells)
+  # check_positive_scalar(n_cells)
   check_positive_scalar(n_target_gene_clusters)
   # check_positive_scalar(regulator_mean)
-  if (length(coefficient_mean) != n_target_gene_clusters) {
-    stop("coefficient_mean must be a vector of positive numbers, and have length n_target_gene_clusters.")
-  }
+  # if (length(coefficient_mean) != n_target_gene_clusters) {
+  #   stop("coefficient_mean must be a vector of positive numbers, and have length n_target_gene_clusters.")
+  # }
 
   n_regulator_genes <- ncol(regulator_expression)
 
@@ -110,7 +112,8 @@ generate_scregclust_data_from_sampled_regulators <- function(
   # n_cells x n_regulator_genes, cells are rows, regulator genes are columns
   # Just get some random expression for regulator genes for now
 
-  Z_r <- regulator_expression_offset + regulator_expression[sample(1:nrow(regulator_expression),n_cells, replace = T),]
+  Z_r <- regulator_expression_offset +
+    regulator_expression[sample(1:nrow(regulator_expression),n_cells, replace = F),]
 
   # Z_r
   # dim(Z_r)
@@ -128,7 +131,14 @@ generate_scregclust_data_from_sampled_regulators <- function(
   #               c(n_regulator_genes,n_target_genes,n_target_gene_clusters))
 
   Beta <- array(
-    data = sapply(1:n_target_gene_clusters, function(i) rnorm(n_regulator_genes*n_target_genes, mean = coefficient_mean[i], sd = 0.1)),
+    data = sapply(1:n_target_gene_clusters,
+                  # function(i) rnorm(n_regulator_genes*n_target_genes,
+                  #                   mean = coefficient_mean[i], sd = 0.1)
+                  function(i) runif(n_regulator_genes*n_target_genes,
+                                    min = coefficient_min[i],
+                                    max = coefficient_max[i]
+                                    )
+                  ),
     dim = c(n_regulator_genes,n_target_genes,n_target_gene_clusters)
   )
 
@@ -174,7 +184,7 @@ generate_scregclust_data_from_sampled_regulators <- function(
             Beta2Beta_i(i)[,j]  #  how much reg of cluster i affects target j
         )
     }
-    cat(paste0("building cluster ", i,"\n_cells"))
+    cat(paste0("building cluster ", i,"\n"))
   }
   # This can probably be vectorized
   # For this we are omitting the variance terms.
