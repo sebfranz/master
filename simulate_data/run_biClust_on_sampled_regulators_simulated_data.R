@@ -16,7 +16,7 @@ set.seed(124)  # This seed crashes due to scregclust producing NULL in all targe
 
 # Set variables ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-n_target_genes = 500
+n_target_genes = 100
 n_cell_clusters = 2
 n_target_gene_clusters = c(3,4)  # Number of target gene clusters in each cell cluster
 regulator_expression_offset =  c(0,0)
@@ -108,11 +108,16 @@ res2 <- generate_scregclust_data_from_sampled_regulators(
 # is_regulator = c(rep(0, n_target_genes),rep(1,ncol(malignant_regulator_expression)))
 is_regulator =  c(rep(0, ncol(res1$Z_t)),rep(1,ncol(res1$Z_r)))
 
-train_dat <- rbind(cbind(res1$Z_t,res1$Z_r),cbind(res2$Z_t,res2$Z_r))
+# up to c(nrow(res1$Z_t), nrow(res2$Z_t))
+cell_subsample <- c(1000, 1000)
+
+train_dat <- rbind(cbind(res1$Z_t,res1$Z_r)[1:cell_subsample[1],],
+                   cbind(res2$Z_t,res2$Z_r)[1:cell_subsample[2],])
 
 
 # Get initial cell clustering
-initial_cell_clust <- kmeans(t(train_dat), n_cell_clusters)$cluster
+initial_cell_clust <- c(rep(1, cell_subsample[1]),rep(2,cell_subsample[2]))
+n_cell_clusters<- 2
 # initial_cell_clust <- sample(1:n_cell_clusters, n_cells, replace = T)
 
 
@@ -122,7 +127,9 @@ disturbed_fraction <- 0.05
 for(i_cluster in 1:n_cell_clusters){
   indexes_of_cluster <- which(initial_cell_clust == i_cluster)
   some_of_those_indexes <- sample(indexes_of_cluster, size=as.integer(length(indexes_of_cluster)*disturbed_fraction), replace = F)
-  disturbed_initial_cell_clust[some_of_those_indexes] <- sample(c(1:n_cell_clusters)[-i_cluster], size=length(some_of_those_indexes), replace=T)
+  disturbed_initial_cell_clust[some_of_those_indexes] <-
+    sample(c(1:n_cell_clusters)[-i_cluster],
+           size=length(some_of_those_indexes), replace=T)
 }
 
 

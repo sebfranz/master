@@ -24,10 +24,10 @@ biclust <- function(max_iter=50,
                     train_dat){
 
   #pre-setup
-  n_cell_clusters <- length(n_cells)
+  n_cell_clusters = length(unique(initial_cluster_history[,1]))
   n_target_genes = sum(is_regulator==0)
   n_regulator_genes = sum(is_regulator==1)
-  total_n_cells = sum(n_cells)
+  total_n_cells = ncol(train_dat)
 
   # Preallocate memory
   if(!is.matrix(initial_cluster_history)){
@@ -73,12 +73,12 @@ biclust <- function(max_iter=50,
         expression             = local_dat,  # p rows of genes and n columns of cells of single cell expression data
         split_indices          = cell_data_split,  # Train/test data split indicated by 1s and 2s\
         genesymbols            = paste0('g', 1:(n_target_genes+n_regulator_genes)),  # Gene row names
-        is_regulator           = is_regulator,  # Vectorindicating which genes are regulators
+        is_regulator           = is_regulator,  # Vectorindicatsing which genes are regulators
         n_cl                   = n_target_gene_clusters[i_cluster],
         target_cluster_start   = target_gene_cluster_start,
-        penalization           = 0.14,
+        penalization           = 0.0001,
         verbose                = FALSE,
-        max_optim_iter         = 1000,
+        max_optim_iter         = 100,
       ) -> out_list[[i_cluster]]
 
     # Store gene clustering for next iteration
@@ -150,7 +150,7 @@ biclust <- function(max_iter=50,
     # here we will compare the minimal mse per gene cluster model per cell cluster.
     # Could also use other metric than mse, e.g. r2
 
-    if (all(is.na(MSE))){
+    if (all(is.na(MSE)) | all(is.na(r2))){
       stop("scregclust put everything in noise cluster for all cellclusters. Exiting.")
     }
     updated_cell_clust <-  cluster_update(-r2, n_cell_clusters, n_target_gene_clusters)
