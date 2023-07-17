@@ -8,7 +8,7 @@ cluster_update <- function(metrics, n_cell_clusters, n_target_gene_clusters){
   if (average_for_cell_cluster){
     d <- aggregate(metrics, list(rep(1:n_cell_clusters, n_target_gene_clusters)), FUN=function(x) mean(x, na.rm = TRUE))
     d <- as.matrix(d)
-    d <- d[, 2:ncol(d)]
+    d <- d[, 2:ncol(d), drop=FALSE]
     d <- as.vector(apply(d, 2, which.min))
   }else{
     d <- rep(1:n_cell_clusters, n_target_gene_clusters)[apply(metrics, 2, which.min)]
@@ -20,7 +20,7 @@ biclust <- function(max_iter=50,
                     initial_cluster_history,
                     is_regulator, #input dataset has to have rows sorted so that targets are highest
                     n_target_gene_clusters = c(3,4,5),  #also necessary
-                    n_cells = c(1000,5000,10000),
+                    # n_cells = c(1000,5000,10000),
                     train_dat){
 
   #pre-setup
@@ -56,7 +56,7 @@ biclust <- function(max_iter=50,
 
     for(i_cluster in 1:n_cell_clusters){
       # Get data for cell cluster i_cluster specifically
-      local_dat <- train_dat[,which(prev_cell_clust == i_cluster)]
+      local_dat <- train_dat[, which(prev_cell_clust == i_cluster), drop=FALSE]
       # local_dat <- as.matrix(local_dat, nrow=, ncol=length(which(prev_cell_clust == i_cluster)))
       # Training data are represented by 1 and test data by 2
       cell_data_split    <- sample(c(1,2),ncol(local_dat), replace = T)
@@ -76,9 +76,9 @@ biclust <- function(max_iter=50,
         is_regulator           = is_regulator,  # Vectorindicatsing which genes are regulators
         n_cl                   = n_target_gene_clusters[i_cluster],
         target_cluster_start   = target_gene_cluster_start,
-        penalization           = 0.0001,
+        penalization           = 0.14,
         verbose                = FALSE,
-        max_optim_iter         = 100,
+        max_optim_iter         = 1000,
       ) -> out_list[[i_cluster]]
 
     # Store gene clustering for next iteration
@@ -104,9 +104,8 @@ biclust <- function(max_iter=50,
       # Expression of all cells
       # xvals expression of regulator cells
       # yvals expression of target cells
-      xvals <- train_dat[(1:(n_target_genes+n_regulator_genes) > n_target_genes), which(prev_cell_clust == i_cell_cluster)]
-      yvals <-  train_dat[(1:(n_target_genes+n_regulator_genes) <= n_target_genes), which(prev_cell_clust == i_cell_cluster)]
-      yvals <- as.matrix(yvals, nrow=length(yvals), ncol=length(which(prev_cell_clust == i_cell_cluster)))
+      xvals <- train_dat[(1:(n_target_genes+n_regulator_genes) > n_target_genes), which(prev_cell_clust == i_cell_cluster), drop=FALSE]
+      yvals <-  train_dat[(1:(n_target_genes+n_regulator_genes) <= n_target_genes), which(prev_cell_clust == i_cell_cluster), drop=FALSE]
       i_total_target_geneclusters <- 0
       for(ii_cell_cluster in 1:n_cell_clusters){
         clustering <- out_list[[ii_cell_cluster]]$results[[1]]$output[[1]]$cluster[1:n_target_genes]
@@ -116,8 +115,7 @@ biclust <- function(max_iter=50,
           betas_for_gene_cluster_i <- out_list[[ii_cell_cluster]]$results[[1]]$output[[1]]$coeffs[[i_target_gene_cluster]]
           # If no target gene was assigned to this cluster we need to do something else
           if(!is.null(betas_for_gene_cluster_i)) {
-            target_gene_cluster_yvals <- yvals[target_gene_ids_in_cluster_i,]
-            target_gene_cluster_yvals <- matrix(target_gene_cluster_yvals, nrow=length(target_gene_ids_in_cluster_i), ncol=length(which(prev_cell_clust == i_cell_cluster)))
+            target_gene_cluster_yvals <- yvals[target_gene_ids_in_cluster_i, ,drop=FALSE]
             SST <- (target_gene_cluster_yvals - mean(target_gene_cluster_yvals))**2
             SST <- as.matrix(SST, nrow=length(target_gene_ids_in_cluster_i), ncol=ncol(target_gene_cluster_yvals))
             # print(paste("n", ncol(target_gene_cluster_yvals)))
@@ -193,7 +191,7 @@ biclust <- function(max_iter=50,
 
     if(stop_iterating_flag == T){
       # Clean up cluster history
-      cell_cluster_history <- cell_cluster_history[ , colSums(is.na(cell_cluster_history))==0]
+      cell_cluster_history <- cell_cluster_history[ , colSums(is.na(cell_cluster_history))==0, drop=FALSE]
       # Stop iterations/exit function
       break
     }
