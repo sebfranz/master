@@ -5,11 +5,12 @@ library(aricode)  # To calculate rand index
 library(Seurat)
 
 execution_path <- dirname(rstudioapi::getActiveDocumentContext()$path)
-print(execution_path)
+sapply(list.files(paste0(execution_path,"/../functions/"),recursive = T),
+       function(nm) source(paste0(execution_path,"/../functions/", nm)))
+
+
 source(paste0(execution_path,"/functions/generate_scregclust_data_from_sampled_regulators.R"))
 source(paste0(execution_path,"/functions/generate_biclust_data_from_sampled_regulators.R"))
-source(paste0(execution_path,"/../functions/biclust.R"))
-source(paste0(execution_path,"/../functions/plot_cluster_history.R"))
 
 set.seed(124)  # This seed crashes due to scregclust producing NULL in all target gene clusters in the only cell cluster left
 
