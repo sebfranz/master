@@ -1,12 +1,12 @@
 dim_<-function(input){
   #better version of dim, less R nonsense
   if(is.list(input)){
-    str(metaData)
+    print(paste0("This list contains: ", str(metaData)))
   }else if(is.matrix(input)){
-    dim(input)
+    print(paste0("This matrix has dimensions: ", dim(input)[1],' rows, and ' ,dim(input)[2], ' columns.' ))
   }else if(is.vector(input)){
-    length(input)
+    print(paste0("This vector has length: " , length(input)))
   }else{
-    print(paste0("why did you check the dimension of a ", typeof(input), "object?"))
+    print(paste0("why did you check the dimension of a ", typeof(input), " object?"))
   }
 }

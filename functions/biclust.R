@@ -21,7 +21,10 @@ biclust <- function(max_iter=50,
                     is_regulator, #input dataset has to have rows sorted so that targets are highest
                     n_target_gene_clusters = c(3,4,5),  #also necessary
                     # n_cells = c(1000,5000,10000),
-                    train_dat){
+                    train_dat,
+                    penalization_parameter = 0.14,
+                    train_dat= NULL,
+                    ...){
 
   #pre-setup
   n_cell_clusters = length(unique(initial_cluster_history[,1]))
@@ -76,9 +79,10 @@ biclust <- function(max_iter=50,
         is_regulator           = is_regulator,  # Vectorindicatsing which genes are regulators
         n_cl                   = n_target_gene_clusters[i_cluster],
         target_cluster_start   = target_gene_cluster_start,
-        penalization           = 0.14,
+        penalization           = penalization_parameter,
         verbose                = FALSE,
         max_optim_iter         = 1000,
+        ...
       ) -> out_list[[i_cluster]]
 
     # Store gene clustering for next iteration
