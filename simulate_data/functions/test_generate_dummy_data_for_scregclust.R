@@ -1,6 +1,11 @@
-library(testthat);
-context("Testing data generation");
-source("generate_dummy_data_for_scregclust.R");
+if (!require(testthat)) install.packages('testthat')
+library(testthat)
+context("Testing data generation")
+filename <- "./simulate_data/functions/generate_dummy_data_for_scregclust.R"
+if(!file.exists(filename)){
+  filename <- "generate_dummy_data_for_scregclust.R"
+}
+source(filename);
 
 test_that("Check if list is returned", {
 
@@ -12,6 +17,9 @@ test_that("Check if list is returned", {
   # Test that the result is the correct value
   expect_that( length(res), equals(5) )
 })
+
+
+# Generate many test inputs ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
 n_target_genes <- c(2,10)
