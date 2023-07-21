@@ -146,7 +146,10 @@ vars_ <- which(vars>sort(vars,decreasing = T)[500])
 
 #first variant simplified_biclust()
 max_iter <- 50
-cell_sample <- c(sample(which(is_malignant==0), 1500 ),sample(which(is_malignant==1), 1500 ) )
+# cell_sample <- c(sample(which(is_malignant==0), 1500 ),sample(which(is_malignant==1), 1500 ) )
+
+cell_sample <- 1:length(is_malignant)
+
 #find initial cluster labels
 initial_clustering <- disturbed_initial_cell_clust[cell_sample]
 true_cell_clust_sample <- true_cell_clust[cell_sample]
@@ -209,8 +212,11 @@ for(i_main in 1:max_iter){
   for(cell in 1:nrow(dat)){
     for(cell_cluster in 1:n_cell_clusters){
       #bug fix hack: remove NA coefficients
-      NA_coeffs <-  unname(which(is.na(models[[cell_cluster]]$coefficients)))
-      S_ERR <- (dat[cell,1] - as.vector(c(1,dat[cell,c(-1, -NA_coeffs)])) %*% models[[cell_cluster]]$coefficients[-NA_coeffs])^2
+      if(any(is.na(models[[cell_cluster]]$coefficients))){
+        NA_coeffs <-  unname(which(is.na(models[[cell_cluster]]$coefficients)))
+        S_ERR <- (dat[cell,1] - as.vector(c(1,dat[cell,c(-1, -NA_coeffs)])) %*% models[[cell_cluster]]$coefficients[-NA_coeffs])^2
+      }
+      S_ERR <- (dat[cell,1] - as.vector(c(1,dat[cell,-1])) %*% models[[cell_cluster]]$coefficients)^2
       r2[cell,cell_cluster] <- 1-(S_ERR/SS_tot[[cell_cluster]])
     }
   }

@@ -23,6 +23,7 @@ biclust <- function(max_iter=50,
                     # n_cells = c(1000,5000,10000),
                     penalization_parameter = 0.14,
                     train_dat= NULL,
+                    plot_r2=TRUE,
                     ...){
 
   #pre-setup
@@ -84,8 +85,8 @@ biclust <- function(max_iter=50,
         ...
       ) -> out_list[[i_cluster]]
 
-    # Store gene clustering for next iteration
-    prev_target_gene_clusters[[i_cluster]] <- out_list[[i_cluster]]$results[[1]]$output[[1]]$cluster
+      # Store gene clustering for next iteration
+      prev_target_gene_clusters[[i_cluster]] <- out_list[[i_cluster]]$results[[1]]$output[[1]]$cluster
     }
 
 
@@ -129,12 +130,12 @@ biclust <- function(max_iter=50,
             SSR_sum_adjusted <- colSums(SSR)/(ncol(target_gene_cluster_yvals) - 1)
             # We promote a cell's own cell cluster by not using adjusted r2 for it.
             if(i_cell_cluster==ii_cell_cluster){
-              r2[i_total_target_geneclusters, prev_cell_clust == i_cell_cluster] <- colSums(SSR)/sum(SST)
+              r2[i_total_target_geneclusters, prev_cell_clust == i_cell_cluster] <- 1 - colSums(SSR)/sum(SST)
             }else{
               r2[i_total_target_geneclusters, prev_cell_clust == i_cell_cluster] <- 1 - SSR_sum_adjusted/SST_sum_adjusted
             }
             MSE[i_total_target_geneclusters, prev_cell_clust == i_cell_cluster] <- colMeans(SSR)
-            }
+          }
         }
       }
     }
@@ -143,6 +144,18 @@ biclust <- function(max_iter=50,
     print((data.frame(r2[,1:7])))
     print("------------")
 
+    # Plot histograms of r2
+    if(plot_r2){
+      par(mfrow=c(length(unique(prev_cell_clust)),n_cell_clusters))
+      for(i_cells_from_cell_cluster in 1:length(unique(prev_cell_clust))){
+        for(i_fits_into_cell_cluster in 1:length(unique(prev_cell_clust))){
+          print(paste(i_cells_from_cell_cluster, i_fits_into_cell_cluster))
+          ind_for_cell_cluster = which(rep(1:n_cell_clusters, n_target_gene_clusters)==i_fits_into_cell_cluster)
+          hist(r2[ind_for_cell_cluster, prev_cell_clust==i_cells_from_cell_cluster], breaks=10000, main=paste("Cells from cell cluster", i_cells_from_cell_cluster, "\nfits into cell cluster", i_fits_into_cell_cluster, "with r2:"))
+        }
+      }
+      mtext(paste("Iteration", i_main), side = 3, line = -1, outer = TRUE)
+    }
     # Update cluster allocation to the appropriate cell cluster -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
     # This can be done in some different ways,
