@@ -1,3 +1,5 @@
+
+#Setup libraries and help functions
 rm(list = ls())
 # library(plyr)
 library(aricode)  # To calculate rand index
@@ -6,20 +8,64 @@ library(aricode)  # To calculate rand index
 # sapply(list.files(paste0(execution_path,"/../functions/"),recursive = T),
 #        function(nm) source(paste0(execution_path,"/../functions/", nm)))
 
+library(ggplot2)
+library(ggalluvial)
+library(reshape2)
+
+#plot cluster evolution
+plot_cluster_history <- function(cell_cluster_history){
+
+  d <- cell_cluster_history
+  d <- d[ , colSums(is.na(d))==0]  # Remove NA data
+  d <- melt(d, id.vars="Cell ID")
+  colnames(d) <- c("cell", "iteration", "cluster")
+  d['cluster'] <- as.factor(d[, 'cluster'])
+
+  rand_ind <- RI(cell_cluster_history[,2],cell_cluster_history[,ncol(cell_cluster_history)])
+
+  # Plotting it
+  # Slow. But keeps track of individual cells
+  # ggplot(d, aes(x = iteration, stratum = cluster, alluvium = cell, fill = cluster, label = cluster)) +
+  #   scale_fill_brewer(type = "qual", palette = "Set2") +
+  #   geom_flow(stat = "alluvium", lode.guidance = "rightleft", color = "darkgray") +
+  #   geom_stratum() +
+  #   theme(legend.position = "bottom") +
+  #   ggtitle("Cluster allocation for each iteration")
+
+  # Doesn't keep track of individual cells
+  ggplot(d, aes(x = iteration, stratum = cluster, alluvium = cell, fill = cluster, label = cluster)) +
+    scale_fill_brewer(type = "qual", palette = "Set2") +
+    geom_flow() +
+    geom_stratum() +
+    ylab("Cells") +
+    xlab("Iteration") +
+    labs(fill="Cluster") +
+    theme(legend.position = "bottom") +
+    ggtitle(paste0("Log of cluster allocation\nRand index of true vs final: ",round(rand_ind,2)))
+
+}
+
+
+# Plot histograms of r2
+r2plot <- function(iteration, r2, prev_cell_clust){
+  if(T){
+    par(mfrow=c(length(unique(prev_cell_clust)),n_cell_clusters))
+    for(i_cells_from_cell_cluster in 1:length(unique(prev_cell_clust))){
+      for(i_fits_into_cell_cluster in 1:length(unique(prev_cell_clust))){
+        print(paste(i_cells_from_cell_cluster, i_fits_into_cell_cluster))
+        ind_for_cell_cluster = which(rep(1:n_cell_clusters, n_target_gene_clusters)==i_fits_into_cell_cluster)
+        hist(r2[ prev_cell_clust==i_cells_from_cell_cluster, ind_for_cell_cluster], breaks=100, main=paste("Cells from cell cluster", i_cells_from_cell_cluster, "\nfits into cell cluster", i_fits_into_cell_cluster, "with r2:"))
+      }
+    }
+    mtext(paste("Iteration", iteration), side = 3, line = -1, outer = TRUE)
+  }
+}
+
 set.seed(1234)
 
-# Set variables ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-#
-# n_target_genes = 100
-# n_cell_clusters = 2
-# n_target_gene_clusters = c(3,4)  # Number of target gene clusters in each cell cluster
-# regulator_expression_offset =  c(0,0)
-# coefficient_means = list(c(1,1,1), c(1,1,1,1))  # For generating dummy data, coefficient means in each cell clustertrue_cluster_allocation = rep(1:n_cell_clusters, times=n_cells)
-# total_n_cells = sum(n_cells)
-
-# Generate dummy data for each cell cluster that we want ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-#generate some trivial data for K "cell" clusters
+########################################################################
+########## Generate dummy data for each cell cluster that we want########
+##########################################################################
 
 n_cell_clusters    <- 2
 num_cells <- 100
@@ -36,7 +82,8 @@ cell_cluster_expression <- sapply(1:n_cell_clusters, function(cellCluster) c(int
 target_expression <- c(cell_cluster_expression[,1], cell_cluster_expression[,2])
 dat <- cbind(target_expression, regulator_expression)
 
-# Kod för att flytta 1% av cellerna i varje kluster till ett annat kluster.
+# Kod för att flytta någon % av cellerna i varje kluster till ett annat kluster.
+
 disturbed_initial_cell_clust <- true_cell_clust
 disturbed_fraction <- 0.20
 for(i_cluster in 1:n_cell_clusters){
@@ -51,7 +98,14 @@ for(i_cluster in 1:n_cell_clusters){
 cell_cluster_history <- cbind(true_cell_clust, disturbed_initial_cell_clust)
 colnames(cell_cluster_history) <- c("True allocation", "Disturbed allocation")
 
+###########################################################################
+############# Run a trivialised variant of biclust concept. ###############
+############# uses a linear model instead of scregclust####################
+############# but cell cluster allocation method  is the same##############
+###########################################################################
+
 #first variant simplified_biclust()
+
 max_iter <- 50
 
 #find initial cluster labels
@@ -74,6 +128,7 @@ cell_cluster_history[, 'Initial clustering'] <- initial_clustering
 
 #preallocate all r2 matrices for later analysis if feasible
 r2_all <- vector("list", length = max_iter)
+
 #set flag for breaking out of the loop.
 stop_iterating_flag = T
 
@@ -82,10 +137,12 @@ current_cell_cluster_allocation <- initial_clustering
 # i_main  <- 1
 
 for(i_main in 1:max_iter){
+
   # fit model to each cell cluster
   models <- vector("list", length = n_cell_clusters)
   for(cell_cluster in 1:n_cell_clusters){
-    models[[cell_cluster]] <- lm(log(dat[,1]) ~ dat[,-1])
+    current_rows <- which(current_cell_cluster_allocation == cell_cluster)
+    models[[cell_cluster]] <- lm(log(dat[current_rows,1]) ~ dat[current_rows,-1])
   }
   # plot(models[[1]])
 
@@ -167,62 +224,13 @@ for(i_main in 1:max_iter){
 }
 
 
-# Plot histograms of r2
-r2plot <- function(iteration, r2, prev_cell_clust){
-  if(T){
-    par(mfrow=c(length(unique(prev_cell_clust)),n_cell_clusters))
-    for(i_cells_from_cell_cluster in 1:length(unique(prev_cell_clust))){
-      for(i_fits_into_cell_cluster in 1:length(unique(prev_cell_clust))){
-        print(paste(i_cells_from_cell_cluster, i_fits_into_cell_cluster))
-        ind_for_cell_cluster = which(rep(1:n_cell_clusters, n_target_gene_clusters)==i_fits_into_cell_cluster)
-        hist(r2[ prev_cell_clust==i_cells_from_cell_cluster, ind_for_cell_cluster], breaks=100, main=paste("Cells from cell cluster", i_cells_from_cell_cluster, "\nfits into cell cluster", i_fits_into_cell_cluster, "with r2:"))
-      }
-    }
-    mtext(paste("Iteration", iteration), side = 3, line = -1, outer = TRUE)
-  }
-}
 
 r2plot(iteration = i_main,
        r2 = r2,
-       prev_cell_clust = cell_cluster_history[,i_main + initial_column_padding])
+       prev_cell_clust = cell_cluster_history[,i_main -1 + initial_column_padding])
 
 
-library(ggplot2)
-library(ggalluvial)
-library(reshape2)
-library(aricode)  # To calculate rand index
 
-plot_cluster_history <- function(cell_cluster_history){
-
-  d <- cell_cluster_history
-  d <- d[ , colSums(is.na(d))==0]  # Remove NA data
-  d <- melt(d, id.vars="Cell ID")
-  colnames(d) <- c("cell", "iteration", "cluster")
-  d['cluster'] <- as.factor(d[, 'cluster'])
-
-  rand_ind <- RI(cell_cluster_history[,2],cell_cluster_history[,ncol(cell_cluster_history)])
-
-  # Plotting it
-  # Slow. But keeps track of individual cells
-  # ggplot(d, aes(x = iteration, stratum = cluster, alluvium = cell, fill = cluster, label = cluster)) +
-  #   scale_fill_brewer(type = "qual", palette = "Set2") +
-  #   geom_flow(stat = "alluvium", lode.guidance = "rightleft", color = "darkgray") +
-  #   geom_stratum() +
-  #   theme(legend.position = "bottom") +
-  #   ggtitle("Cluster allocation for each iteration")
-
-  # Doesn't keep track of individual cells
-  ggplot(d, aes(x = iteration, stratum = cluster, alluvium = cell, fill = cluster, label = cluster)) +
-    scale_fill_brewer(type = "qual", palette = "Set2") +
-    geom_flow() +
-    geom_stratum() +
-    ylab("Cells") +
-    xlab("Iteration") +
-    labs(fill="Cluster") +
-    theme(legend.position = "bottom") +
-    ggtitle(paste0("Log of cluster allocation\nRand index of true vs final: ",round(rand_ind,2)))
-
-}
 
 plot_cluster_history(cell_cluster_history = cell_cluster_history)
 
