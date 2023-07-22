@@ -1,12 +1,4 @@
-# Lite R-kod för att testköra scregclust
-
-# n_target_genes <- 10   #number of target genes
-# n_regulator_genes <- 5    #number of regulator genes
-# n_cells <- 100   #number of cells
-# n_target_gene_clusters <- 3     #Number of target gene clusters
-# regulator_mean   = 1
-# coefficient_mean = c(1,10,100)
-
+#!/usr/bin/Rscript
 # Binary matrix Pi --------------------------------------------------------
 # Which target gene is allocated to which cluster.
 # Here it's randomly generated, for real data it would be smartly guessed.
@@ -26,9 +18,9 @@ generate_dummy_data_for_scregclust <- function(
     if (!(length(x) == 1L &&
           is.atomic(x) &&
           is.numeric(x) &&
-          x == round(x) &&
-          x >= 1)) {
-      stop(paste0(deparse(substitute(a)), " must be positive scalar."))
+          #x == round(x) &&
+          x >= 0)) {
+      stop(paste0(deparse(substitute(x)), " must be positive scalar."))
     }
   }
 
@@ -171,7 +163,7 @@ generate_dummy_data_for_scregclust <- function(
             Beta2Beta_i(i)[,j]  #  how much reg of cluster i affects target j
         )
     }
-    cat(paste0("building cluster ", i,"\n_cells"))
+    # cat(paste0("building cluster ", i,"\n_cells"))
   }
   # This can probably be vectorized
   # For this we are omitting the variance terms.
@@ -184,25 +176,12 @@ generate_dummy_data_for_scregclust <- function(
   )
 }
 
-# Z_t
-# dim(Z_t)
-
-# # apply simulated data to scregclust ---------------------------------------
-# library(scregclust)
-# ?scregclust
-#
-#
-# scregclust(
-#   expression = rbind(t(Z_t), t(Z_r)),    #scRegClust wants this form
-#   genesymbols = 1:(n_target_genes+n_regulator_genes),               #gene row numbers
-#   is_regulator = (1:(n_target_genes+n_regulator_genes) > n_target_genes) + 0, #vector indicating which genes are regulators
-#   target_cluster_start = n_target_gene_clusters,
-#   penalization = max(sapply(seq_along(R[,1]), function(i) sum(R[i,]))) + 1
-#   #maximal number of regulators for one cluster
-# )-> scRegOut
-#
-# scRegOut$results
-#
-# R
-#
-# Pi
+# runs only when script is run by itself
+# || interactive()
+if (sys.nframe() == 0){
+  # ... do main stuff7
+  print("")
+  print(!interactive())
+  print(sys.nframe() == 0 )
+  print("hej")
+}
