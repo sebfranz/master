@@ -184,8 +184,14 @@ First step is to, for each cell cluster separately, fit a standard linear model.
     current_rows <- which(current_cell_cluster_allocation == cell_cluster)
     models[[cell_cluster]] <- lm(log(dat[current_rows,1]) ~ dat[current_rows,-1])
   }
-   plot(models[[1]], which = 1)
-   plot(models[[2]], which = 1)
+   # plot(models[[1]], which = 1)
+   # plot(models[[2]], which = 1)
+
+ggplot(as.data.frame(dat[,]), aes(x = regulator_expression, y = log(target_expression))) +
+  geom_point() +
+  geom_abline(intercept = coef(models[[1]])[1], slope = coef(models[[1]])[2], color = "red") +
+  geom_abline(intercept = coef(models[[2]])[1], slope = coef(models[[2]])[2], color = "red") +
+  labs(title = "Scatterplot with Regression Lines")
 ```
 
 Now that we have fitted some models, it's time to re-allocate cells to appropriate clusters.
