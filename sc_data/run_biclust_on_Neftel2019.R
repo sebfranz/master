@@ -114,27 +114,27 @@ colnames(cell_cluster_history) <- c("True allocation", "Disturbed allocation")
 
 set.seed(1234)
 #optionally create a vector of cells to include, if we want TIME to PASS
-cols2keep <- sample(ncol(z_g1_ordered), 4500)
+# cols2keep <- sample(ncol(z_g1_ordered), 4500)
 
 
 # if(!'neftel_biclustfit_group1' %in% list.files(paste0(execution_path,'/r_files/'))){
 
 #thiw might be optional not sure, but ida does it and we keep getting stuck in loops
-for (i in 1:length(unique(metaData))){
-  ix<-which(metaData==unique(metaData)[i])
-  sample_assignment[ix]<-i
-}
+# for (i in 1:length(unique(metaData))){
+#   ix<-which(metaData==unique(metaData)[i])
+#   sample_assignment[ix]<-i
+# }
 
 res <- biclust(max_iter=50,
-               initial_cluster_history = cell_cluster_history[cols2keep,],
+               initial_cluster_history = cell_cluster_history,#[cols2keep,],
                is_regulator =  is_predictor,
                n_target_gene_clusters = rep(10,n_cell_clusters),
                penalization_parameter = 0.005,
-               train_dat = z_g1_ordered[,cols2keep]
+               train_dat = z_g1_ordered,#[,cols2keep]
                # sample_assignment = sample_assignment[cols2keep]  can't just send in requires special care
 )
 
-  saveRDS(res, file = paste0(execution_path, '/r_files/', "neftel_biclustfit_group1"))
+  # saveRDS(res, file = paste0(execution_path, '/r_files/', "neftel_biclustfit_group1"))
 # } else {
 #   res <- readRDS(file = paste0(execution_path, '/r_files/', "neftel_biclustfit_group1"))
 # }
