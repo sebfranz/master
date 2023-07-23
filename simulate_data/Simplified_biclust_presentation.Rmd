@@ -225,8 +225,13 @@ To do this, we need to calculate the r2/predicted r2 for each cell, for each cel
   
   r2plot(iteration = i_main,
        r2 = r2,
-       prev_cell_clust = cell_cluster_history[,i_main -1 + initial_column_padding])
-
+       prev_cell_clust = true_cell_clust)
+  
+  ggplot(data = as.tibble(cbind(r2, true_cell_clust)),
+       aes(x = V1, y = V2, color = as.factor(true_cell_clust))
+      ) + 
+  geom_point() +
+    labs(x = "r2 for fitting into cluster 1", y = "r2 for fitting into cluster 2")
   
 ```
 
