@@ -111,11 +111,9 @@ dat <- cbind(target_expression, regulator_expression)
 hist(target_expression, breaks = 100)
 plot(dat[,c(2,1)])
 ```
-Now, knowing the true cluster labels, our idea is to start the biclust algorithm with some observations put into the wrong cluster, and see if the algorithm can find its way back to the true ones.
-The point is that a proper biclust can use some other clustering to find initial cluster labels, and then hopefully biclust could improve this initial clustering using the additional information from scregclust
+The end goal of the real biclust is that it can use another clustering method to find initial cluster labels, and then hopefully it could improve upon this using the additional information from scregclust
 
-
-So, we set up cluster labels with mostly true labels, but a proportion of the labels permuted.
+For this simple example, our idea is to put some observations into the wrong cluster, and see if the biclust-algorithm can put them back to the true cluster. We set up cluster labels with mostly true labels, but a proportion of the labels permuted.
 
 ```{r}
 disturbed_initial_cell_clust <- true_cell_clust
