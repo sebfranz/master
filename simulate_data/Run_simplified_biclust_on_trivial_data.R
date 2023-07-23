@@ -133,6 +133,7 @@ r2_all <- vector("list", length = max_iter)
 #set flag for breaking out of the loop.
 stop_iterating_flag = T
 
+#set the current cell clustering
 current_cell_cluster_allocation <- initial_clustering
 
 # i_main  <- 1
