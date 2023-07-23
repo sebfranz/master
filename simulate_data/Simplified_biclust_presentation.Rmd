@@ -70,10 +70,10 @@ The idea of this script is to walk through one iteration of our simplified versi
 
 The main idea is to consider biclust as a modular clustering algorithm that in general should be able to take in any kind of linear model-like method and use it for clustering. The core idea is that we have something that builds a linearisch model that we can use to derive r2 for cells in the cluster, and predicted r2 values for cells in other clusters (those that were not used for fitting that particular models), so we can use these r2/predicted r2 to reassign cells to clusters and re-fit models.
 
-For this ultra-simple example, we will try this concept using the simplest thinkable method: a linear model of one dependent model and one independent variable.
+For this ultra-simple example, we will try this concept using the simplest thinkable method: a linear model of one dependent and one independent variable.
 
-## simulating some data
-First, we build some gene expression for some regulator genes
+## Simulating some data
+First, we build some gene expression for some regulator genes.
 
 ```{r regulators}
 num_cells <- 100
@@ -82,25 +82,25 @@ hist(regulator_expression)
 
 ```
 
-Now using these regulator expression we will build some target gene expressions. We want we target gene expressions to be pretty clearly clustered for this example. 
-This will correspond to them being built from different regulatory models. So first we define how many clusters we want, and define our regulatory model for each cell cluster.
+Now using these regulator gene expressions we will build some target gene expressions. We want the target gene expressions to be clearly clustered for this example.
+This will correspond to them being built from different regulatory models. So, first we define how many clusters we want, and define our regulatory model for each cell cluster.
 
 ```{r models}
 n_cell_clusters    <- 2
-#sample intercepts
+# Sample intercepts
 intercepts <- rnorm(n_cell_clusters, mean = 10, sd = 5)
-#sample slopes
+# Sample slopes
 betas      <- rnorm(n_cell_clusters, mean = 1,  sd = 0.5)
-#assign half of the cells to be in either cluster
+# Assign half of the cells to be in either cluster
 true_cell_clust <- c(rep(1,num_cells/2), rep(2,num_cells/2))
 
 ```
 
-Next we use these parameters go generate target gene expression.
+Next we use these parameters to generate target gene expression.
 
 ```{r target expression ,fig.show="hold", out.width="50%"}
 
-#build cell expression from linear model
+# Build cell expression from linear model
 cell_cluster_expression <- sapply(1:n_cell_clusters, function(cellCluster) c(intercepts[cellCluster], betas[cellCluster]) %*%
                                         t(cbind(rep(1, num_cells/2), regulator_expression[which(true_cell_clust == cellCluster)]))
       )
@@ -111,8 +111,8 @@ dat <- cbind(target_expression, regulator_expression)
 hist(target_expression, breaks = 100)
 plot(dat[,c(2,1)])
 ```
-Now, we know the true cluster labels, our idea is to start iterating with some observations put into the wrong cluster, and see if the algorithm can find its way back to the true ones.
-The point is that a proper biclust can use some other clustering to find initial cluster labels, and then hopefully biclust coult improve this initial clustering using the additional information from scregclust
+Now, knowing the true cluster labels, our idea is to start the biclust algorithm with some observations put into the wrong cluster, and see if the algorithm can find its way back to the true ones.
+The point is that a proper biclust can use some other clustering to find initial cluster labels, and then hopefully biclust could improve this initial clustering using the additional information from scregclust
 
 
 So, we set up cluster labels with mostly true labels, but a proportion of the labels permuted.
@@ -136,27 +136,27 @@ colnames(cell_cluster_history) <- c("True allocation", "Disturbed allocation")
 ## Biclust, first iteration
 Now it's time to actually do something resembling biclust.
 
-The real thing would obviously go through many iterations, but for now let's just walk through one iteration.
+The real thing would obviously work for many iterations, but for now lets just walk through one iteration.
 
-first we set up and preallocate some variables that we'll use later
+First we set up and preallocate some variables that we'll use later.
 
 ```{r}
-i_main <- 1 #main iteration variable, just set it to one for now.
-max_iter <- 1 # this one would usually cap number of iterations, set to 1 for now
+i_main <- 1  # Main iteration variable, just set it to one for now.
+max_iter <- 1  # This one would usually cap number of iterations, set to 1 for now
 
 
-#find initial cluster labels
+# Find initial cluster labels
 initial_clustering <- disturbed_initial_cell_clust
-n_target_gene_clusters <- 1 #we are not clustering target genes for now and we only have one target gene
+n_target_gene_clusters <- 1  # We are not clustering target genes for now and we only have one target gene
 
 
-#set up some variables
+# Set up some variables
 n_cell_clusters = length(unique(initial_clustering))
 n_target_genes = 1
 n_regulator_genes = 1
 
 
-#set up cluster history
+# Set up cluster history
 initial_column_padding <- ncol(as.matrix(initial_clustering)) + 1  # +1 Because we have an index column that is not an index column it's an ID column
 cell_cluster_history <- data.frame(matrix(NA, nrow = nrow(as.matrix(initial_clustering)), ncol = max_iter + initial_column_padding))
 colnames(cell_cluster_history) <- c("Cell ID", 'Initial clustering', paste0("Iteration ", 1:max_iter))
@@ -164,13 +164,13 @@ cell_cluster_history[, 'Cell ID'] <-1:length(initial_clustering)  # Set cell nam
 cell_cluster_history[, 'Initial clustering'] <- initial_clustering
 
 
-#preallocate all r2 matrices for later analysis if feasible
+# Pre-allocate all r2 matrices for later analysis if feasible
 r2_all <- vector("list", length = max_iter)
 
-#set flag for breaking out of the loop.
+# Set flag for breaking out of the loop.
 stop_iterating_flag = T
 
-#set the current cell clustering
+# Set the current cell clustering
 current_cell_cluster_allocation <- initial_clustering
 
 ```
@@ -178,7 +178,7 @@ current_cell_cluster_allocation <- initial_clustering
 First step is to, for each cell cluster separately, fit a standard linear model.
 
 ```{r  fig.show="hold", out.width="50%"}
- # fit model to each cell cluster
+ # Fit model to each cell cluster
   models <- vector("list", length = n_cell_clusters)
   for(cell_cluster in 1:n_cell_clusters){
     current_rows <- which(current_cell_cluster_allocation == cell_cluster)
@@ -198,11 +198,11 @@ Now that we have fitted some models, it's time to re-allocate cells to appropria
 To do this, we need to calculate the r2/predicted r2 for each cell, for each cell cluster. 
 
 ```{r}
-#for all cells, calculate the predicted r2 for all cell clusters.
+# For all cells, calculate the predicted r2 for all cell clusters.
   r2 <- matrix(0, nrow = nrow(dat), ncol = n_cell_clusters)
 
-  #first calculate the mean target gene expression in these clusters
-  #also the total sum of squares in that cluster
+  # First calculate the mean target gene expression in these clusters
+  # also the total sum of squares in that cluster
   target_gene_means <- vector('numeric', length = n_cell_clusters )
   SS_tot <- vector('numeric', length = n_cell_clusters )
   for(cell_cluster in 1:n_cell_clusters){
@@ -210,10 +210,10 @@ To do this, we need to calculate the r2/predicted r2 for each cell, for each cel
     SS_tot[cell_cluster]  <- sum((dat[,1] - target_gene_means[cell_cluster])^2)
   }
 
-  #now to actually caltulate predicted or 'predicted' r2
+  # Now to actually caltulate predicted or 'predicted' r2
   for(cell in 1:nrow(dat)){
     for(cell_cluster in 1:n_cell_clusters){
-      #bug fix hack: remove NA coefficients
+      # Bug fix hack: remove NA coefficients
       if(any(is.na(models[[cell_cluster]]$coefficients))){
         NA_coeffs <-  unname(which(is.na(models[[cell_cluster]]$coefficients)))
         S_ERR <- (dat[cell,1] - as.vector(c(1,dat[cell,c(-1, -NA_coeffs)])) %*% models[[cell_cluster]]$coefficients[-NA_coeffs])^2
@@ -233,12 +233,12 @@ To do this, we need to calculate the r2/predicted r2 for each cell, for each cel
 ```
 
 
-And now that we have our r2 data, it's time to re-assign cluster labels. This is straightforward, we just select which column of r2 has lowest r2, indicating best fit.
-Usually this would raise the concern of overfitting, since a cell was used to fit the model for the cluster it was in the start of the iteration. If that was a big problem, cells would tend to be assigned to the same cluster as they started in. As you can see, that's not really a problem.
+And now that we have our r2 data, it's time to re-assign cluster labels. This is straightforward, we just select the r2 column with the lowest r2, indicating best fit.
+Usually this would raise the concern of over-fitting, since a cell was used to fit the model for the cluster it was in the start of the iteration. If that was a big problem, cells would tend to be assigned to the same cluster as they started in. As you can see, that's not really a problem.
 
 ```{r}
 
-  #update cluster allocations
+  # Update cluster allocations
   updated_cell_clust <-  sapply(1:nrow(r2), function(row) which.min(r2[row,]))
 
 
