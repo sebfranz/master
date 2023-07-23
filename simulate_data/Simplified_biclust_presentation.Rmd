@@ -159,7 +159,7 @@ n_regulator_genes = 1
 # Set up cluster history
 initial_column_padding <- ncol(as.matrix(initial_clustering)) + 1  # +1 Because we have an index column that is not an index column it's an ID column
 cell_cluster_history <- data.frame(matrix(NA, nrow = nrow(as.matrix(initial_clustering)), ncol = max_iter + initial_column_padding))
-colnames(cell_cluster_history) <- c("Cell ID",'true clusters', 'Initial clustering', paste0("Iteration ", 1:max_iter))
+colnames(cell_cluster_history) <- c("Cell ID", 'Initial clustering', paste0("Iteration ", 1:max_iter))
 cell_cluster_history[, 'Cell ID'] <-1:length(initial_clustering)  # Set cell names
 cell_cluster_history[, 'Initial clustering'] <- initial_clustering
 
