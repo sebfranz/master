@@ -250,6 +250,11 @@ Usually this would raise the concern of over-fitting, since a cell was used to f
 
 
 ```{r}
+
+cell_cluster_history <-cbind('Cell ID' = cell_cluster_history[,1],
+                             true_cell_clust,
+                             cell_cluster_history[,c(2,3)])
+
 plot_cluster_history(cell_cluster_history = cell_cluster_history)
   
 ```
