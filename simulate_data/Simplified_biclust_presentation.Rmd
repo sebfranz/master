@@ -1,0 +1,120 @@
+---
+title: "Simplified_biclust_walkthrough"
+output: html_document
+date: "2023-07-23" 
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(aricode)  # To calculate rand index
+library(ggplot2)
+library(ggalluvial)
+library(reshape2)
+
+#plot cluster evolution
+plot_cluster_history <- function(cell_cluster_history){
+
+  d <- cell_cluster_history
+  d <- d[ , colSums(is.na(d))==0]  # Remove NA data
+  d <- melt(d, id.vars="Cell ID")
+  colnames(d) <- c("cell", "iteration", "cluster")
+  d['cluster'] <- as.factor(d[, 'cluster'])
+
+  rand_ind <- RI(cell_cluster_history[,2],cell_cluster_history[,ncol(cell_cluster_history)])
+
+  # Plotting it
+  # Slow. But keeps track of individual cells
+  # ggplot(d, aes(x = iteration, stratum = cluster, alluvium = cell, fill = cluster, label = cluster)) +
+  #   scale_fill_brewer(type = "qual", palette = "Set2") +
+  #   geom_flow(stat = "alluvium", lode.guidance = "rightleft", color = "darkgray") +
+  #   geom_stratum() +
+  #   theme(legend.position = "bottom") +
+  #   ggtitle("Cluster allocation for each iteration")
+
+  # Doesn't keep track of individual cells
+  ggplot(d, aes(x = iteration, stratum = cluster, alluvium = cell, fill = cluster, label = cluster)) +
+    scale_fill_brewer(type = "qual", palette = "Set2") +
+    geom_flow() +
+    geom_stratum() +
+    ylab("Cells") +
+    xlab("Iteration") +
+    labs(fill="Cluster") +
+    theme(legend.position = "bottom") +
+    ggtitle(paste0("Log of cluster allocation\nRand index of true vs final: ",round(rand_ind,2)))
+
+}
+
+
+# Plot histograms of r2
+r2plot <- function(iteration, r2, prev_cell_clust){
+  if(T){
+    par(mfrow=c(length(unique(prev_cell_clust)),n_cell_clusters))
+    for(i_cells_from_cell_cluster in 1:length(unique(prev_cell_clust))){
+      for(i_fits_into_cell_cluster in 1:length(unique(prev_cell_clust))){
+        print(paste(i_cells_from_cell_cluster, i_fits_into_cell_cluster))
+        ind_for_cell_cluster = which(rep(1:n_cell_clusters, n_target_gene_clusters)==i_fits_into_cell_cluster)
+        hist(r2[ prev_cell_clust==i_cells_from_cell_cluster, ind_for_cell_cluster], breaks=100, main=paste("Cells from cell cluster", i_cells_from_cell_cluster, "\nfits into cell cluster", i_fits_into_cell_cluster, "with r2:"))
+      }
+    }
+    mtext(paste("Iteration", iteration), side = 3, line = -1, outer = TRUE)
+  }
+}
+
+set.seed(1234)
+```
+
+## Simplified biclust demo
+
+The idea of this script is to walk through one iteration of our simplified version of biclust and find out either why the concept is flawed or if we are missing something that should be obvious.
+
+The main idea is to consider biclust as a modular clustering algorithm that in general should be able to take in any kind of linear model-like method and use it for clustering. The core idea is that we have something that builds a linearisch model that we can use to derive r2 for cells in the cluster, and predicted r2 values for cells in other clusters (those that were not used for fitting that particular models), so we can use these r2/predicted r2 to reassign cells to clusters and re-fit models.
+
+For this ultra-simple example, we will try this concept using the simplest thinkable method: a linear model of one dependent model and one independent variable.
+
+## simulating some data
+First, we build some gene expression for some regulator genes
+
+```{r regulators}
+num_cells <- 100
+regulator_expression <- rnorm(num_cells, mean = 1, sd = 0.1)
+hist(regulator_expression)
+
+```
+
+Now using these regulator expression we will build some target gene expressions. We want we target gene expressions to be pretty clearly clustered for this example. 
+This will correspond to them being built from different regulatory models. So first we define how many clusters we want, and define our regulatory model for each cell cluster.
+
+```{r models}
+n_cell_clusters    <- 2
+#sample intercepts
+intercepts <- rnorm(n_cell_clusters, mean = 10, sd = 5)
+#sample slopes
+betas      <- rnorm(n_cell_clusters, mean = 1,  sd = 0.5)
+#assign half of the cells to be in either cluster
+true_cell_clust <- c(rep(1,num_cells/2), rep(2,num_cells/2))
+
+```
+
+Next we use these parameters go generate target gene expression.
+
+```{r target expression}
+
+#build cell expression from linear model
+cell_cluster_expression <- sapply(1:n_cell_clusters, function(cellCluster) c(intercepts[cellCluster], betas[cellCluster]) %*%
+                                        t(cbind(rep(1, num_cells/2), regulator_expression[which(true_cell_clust == cellCluster)]))
+      )
+
+target_expression <- c(cell_cluster_expression[,1], cell_cluster_expression[,2])
+dat <- cbind(target_expression, regulator_expression)
+
+hist(target_expression, breaks = 100)
+```
+Now, we know the true cluster labels, our idea is to start iterating with some observations put into the wrong cluster, and see if the algorithm can find its way back to the true ones.
+
+So, we set up some 
+
+```{r}
+
+```
+

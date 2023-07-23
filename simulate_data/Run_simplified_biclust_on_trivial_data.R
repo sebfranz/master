@@ -67,11 +67,12 @@ set.seed(1234)
 ########## Generate dummy data for each cell cluster that we want########
 ##########################################################################
 
-n_cell_clusters    <- 2
 num_cells <- 100
+regulator_expression <- rnorm(num_cells, mean = 1, sd = 0.1)
+
+n_cell_clusters    <- 2
 intercepts <- rnorm(n_cell_clusters, mean = 10, sd = 5)
 betas      <- rnorm(n_cell_clusters, mean = 1,  sd = 0.5)
-regulator_expression <- rnorm(num_cells, mean = 1, sd = 0.1)
 true_cell_clust <- c(rep(1,num_cells/2), rep(2,num_cells/2))
 
 #build cell expression from linear model
