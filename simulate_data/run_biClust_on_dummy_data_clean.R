@@ -17,8 +17,8 @@ n_target_gene_clusters <- c(3,4,5)  # Number of target gene clusters in each cel
 n_target_genes <- 40
 n_regulator_genes <- 20
 n_cells <- c(1000,5000,10000)
-regulator_means = c(4,2,3)  # For generating dummy data, regulator mean in each cell cluster
-coefficient_means = list(c(40,2.5,13), c(1,2,3,4), c(1,2,3,4,5))  # For generating dummy data, coefficient means in each cell cluster
+regulator_means = c(1,5,20)  # For generating dummy data, regulator mean in each cell cluster
+coefficient_means = list(c(1,2,3), c(4,5,6,7), c(8,9,10,11,12))  # For generating dummy data, coefficient means in each cell cluster
 true_cluster_allocation = rep(1:n_cell_clusters, times=n_cells)
 total_n_cells = sum(n_cells)
 
@@ -30,17 +30,22 @@ res <- generate_dummy_data_for_cell_clustering(
     n_regulator_genes = n_regulator_genes,
     n_cells = n_cells,
     regulator_means = regulator_means,  # For generating dummy data, regulator mean in each cell cluster
-    coefficient_means = coefficient_means  # For generating dummy data, coefficient means in each cell cluster
+    coefficient_means = coefficient_means,  # For generating dummy data, coefficient means in each cell cluster
+    disturbed_fraction = 0.01
 )
 
 cell_cluster_history <- cbind(res$initial_cell_clust, res$disturbed_initial_cell_clust)
 colnames(cell_cluster_history) <- c("True allocation", "Disturbed allocation")
 
+# install.packages("gplots")
+# library("gplots")
+# heatmap.2(res$train_dat/max(res$train_dat), scale = "none", col = bluered(100),
+#           trace = "none", density.info = "none")
+
 res <- biclust(max_iter=50,
                initial_cluster_history = cell_cluster_history,
                is_regulator = c(rep(0,n_target_genes),rep(1,n_regulator_genes)),
                n_target_gene_clusters = n_target_gene_clusters,
-               # n_cells = n_cells,
                train_dat = res$train_dat)
 
 plot_cluster_history(cell_cluster_history = res$cell_cluster_history)

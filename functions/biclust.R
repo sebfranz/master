@@ -19,16 +19,14 @@ cluster_update <- function(metrics, n_cell_clusters, n_target_gene_clusters){
 
 biclust <- function(max_iter=50,
                     initial_cluster_history,
-                    is_regulator, #input dataset has to have rows sorted so that targets are highest
-                    n_target_gene_clusters = c(3,4,5),  #also necessary
-                    # n_cells = c(1000,5000,10000),
-                    train_dat,
+                    is_regulator,  # Input dataset has to have rows sorted so that targets are highest
+                    n_target_gene_clusters = c(3,4,5),
                     penalization_parameter = 0.14,
-                    train_dat= NULL,
-                    plot_r2=TRUE,
+                    train_dat,
+                    plot_r2 = TRUE,
                     ...){
 
-  #pre-setup
+  # Setup
   n_cell_clusters = length(unique(initial_cluster_history[,1]))
   n_target_genes = sum(is_regulator==0)
   n_regulator_genes = sum(is_regulator==1)
