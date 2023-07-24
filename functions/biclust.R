@@ -1,3 +1,4 @@
+#!/usr/bin/Rscript
 library(scregclust)
 library(plyr)
 library(aricode)  # To calculate rand index
@@ -82,7 +83,7 @@ biclust <- function(max_iter=50,
         target_cluster_start   = target_gene_cluster_start,
         penalization           = penalization_parameter,
         verbose                = FALSE,
-        max_optim_iter         = 1000,
+        max_optim_iter         = 10000,
         ...
       ) -> out_list[[i_cluster]]
 
@@ -132,8 +133,10 @@ biclust <- function(max_iter=50,
             # We promote a cell's own cell cluster by not using adjusted r2 for it.
             if(i_cell_cluster==ii_cell_cluster){
               r2[i_total_target_geneclusters, prev_cell_clust == i_cell_cluster] <- 1 - colSums(SSR)/sum(SST)
+              # r2[i_total_target_geneclusters, prev_cell_clust == i_cell_cluster] <- 1 - SSR_sum_adjusted/SST_sum_adjusted
             }else{
-              r2[i_total_target_geneclusters, prev_cell_clust == i_cell_cluster] <- 1 - SSR_sum_adjusted/SST_sum_adjusted
+              r2[i_total_target_geneclusters, prev_cell_clust == i_cell_cluster] <- 1 - colSums(SSR)/sum(SST)
+              # r2[i_total_target_geneclusters, prev_cell_clust == i_cell_cluster] <- 1 - SSR_sum_adjusted/SST_sum_adjusted
             }
             MSE[i_total_target_geneclusters, prev_cell_clust == i_cell_cluster] <- colMeans(SSR)
           }
@@ -226,4 +229,10 @@ biclust <- function(max_iter=50,
   }
 
   return(list(cell_cluster_history=cell_cluster_history))
+}
+
+
+# runs only when script is run by itself
+if (sys.nframe() == 0){
+  # ... do main stuff
 }
