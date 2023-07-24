@@ -235,6 +235,7 @@ To do this, we need to calculate the r2/predicted r2 for each cell, for each cel
        aes(x = V1, y = V2, color = as.factor(true_cell_clust))
       ) + 
   geom_point() +
+    geom_abline(intercept = 0, slope = 1)+
     labs(x = "r2 for fitting into cluster 1", y = "r2 for fitting into cluster 2")
   
 ```
@@ -266,4 +267,3 @@ plot_cluster_history(cell_cluster_history = cell_cluster_history)
   
 ```
 
-As you can see, the algorithm has decided to put all observations into one of the clusters.
