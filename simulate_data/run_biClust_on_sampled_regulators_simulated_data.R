@@ -140,7 +140,6 @@ res <- biclust(max_iter=50,
                initial_cluster_history = cell_cluster_history,
                is_regulator =  is_regulator,
                n_target_gene_clusters = n_target_gene_clusters,
-               n_cells = nrow(train_dat),
                train_dat = t(train_dat)
                )
 

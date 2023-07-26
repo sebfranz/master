@@ -5,32 +5,72 @@
 # Rows are cluster index.
 # Cols are target gene index.
 generate_dummy_data_for_scregclust <- function(
-    n_target_genes = 30,              #number of target genes
-    n_regulator_genes = 20,               #number of regulator genes
-    n_cells  = 1000,             #number of cells
-    n_target_gene_clusters  = 2,               #Number of target gene clusters
-    regulator_mean   = 1, #mean expression of regulator genes
-    coefficient_mean = c(1,2) #mean coefficients in true  model, length n_target_gene_clusters
+    n_target_genes = 30,  # Number of target genes
+    n_regulator_genes = 20,  # Number of regulator genes
+    n_cells  = 1000,  # Number of cells
+    n_target_gene_clusters  = 2,  # Number of target gene clusters
+    regulator_mean   = 1,  # Mean expression of regulator genes
+    coefficient_mean = c(1,2)  # Mean coefficients in true model, length n_target_gene_clusters
 )
 {
   # Check arguments
-  check_positive_scalar <- function(x){
-    if (!(length(x) == 1L &&
-          is.atomic(x) &&
-          is.numeric(x) &&
-          #x == round(x) &&
-          x >= 0)) {
-      stop(paste0(deparse(substitute(x)), " must be positive scalar."))
+  checks <- function(x, one_element=TRUE, atomic=TRUE, numeric=TRUE, positive=TRUE, int=TRUE){
+    error_message <- ""
+    if(one_element){
+      if (!(length(x) == 1L)) {
+        add_message <- paste0(deparse(substitute(x)), " must be one number.")
+        error_message <- paste(error_message, add_message, sep="\n")
+      }
+    }
+
+    if(atomic){
+      if(!is.atomic(x)) {
+        add_message <- (paste0(deparse(substitute(x)), " must be atomic."))
+        error_message <- paste(error_message, add_message, sep="\n")
+      }
+    }
+
+    if(numeric){
+      if (!is.numeric(x)) {
+        add_message <- (paste0(deparse(substitute(x)), " must be numeric."))
+        error_message <- paste(error_message, add_message, sep="\n")
+      }
+    }
+
+    if(positive){
+      if (x < 0) {
+        add_message <- (paste0(deparse(substitute(x)), " must be >=0."))
+        error_message <- paste(error_message, add_message, sep="\n")
+      }
+    }
+
+    if(int){
+      if (!(round(x)==x)) {
+        add_message <- (paste0(deparse(substitute(x)), " must be an integer."))
+        error_message <- paste(error_message, add_message, sep="\n")
+      }
+    }
+
+    if(length(error_message)>1){
+      stop(error_message)
     }
   }
 
-  check_positive_scalar(n_target_genes)
-  check_positive_scalar(n_regulator_genes)
-  check_positive_scalar(n_cells)
-  check_positive_scalar(n_target_gene_clusters)
-  check_positive_scalar(regulator_mean)
+
+  checks(n_target_genes)
+  checks(n_regulator_genes)
+  checks(n_cells)
+  checks(n_target_gene_clusters)
+  checks(regulator_mean, one_element=TRUE, atomic=TRUE, numeric=TRUE, positive=FALSE, int=FALSE)
+  checks(coefficient_mean, one_element=FALSE, atomic=TRUE, numeric=TRUE, positive=FALSE, int=FALSE)
+
   if (length(coefficient_mean) != n_target_gene_clusters) {
-    stop("coefficient_mean must be a vector of positive numbers, and have length n_target_gene_clusters.")
+    stop(paste0("coefficient_mean has length ", length(coefficient_mean), ", but must have length n_target_gene_clusters: ",n_target_gene_clusters,"."))
+  }
+
+  # It's +1 because kmeans algo doesn't work otherwise
+  if (!(n_target_genes >= (n_target_gene_clusters+1))) {
+    stop(paste0("It must be that: n_target_genes>=n_target_gene_clusters+1, but right now: ", n_target_genes, "<", n_target_gene_clusters))
   }
 
 
@@ -40,12 +80,18 @@ generate_dummy_data_for_scregclust <- function(
 
   # To guarantee at least one target gene per cluster, assign the first n_target_gene_clusters target
   # gene to different clusters
-  for(index in 1:n_target_gene_clusters){
-    Pi[index, index] <- 1
+  for(i_target_gene_cluster in 1:n_target_gene_clusters){
+    for(i_col in 1:min(n_target_gene_clusters, ncol(Pi))){
+      Pi[i_target_gene_cluster, i_col] <- 1
+    }
   }
+
   # Set rest of matrix randomly
-  for(index in (n_target_gene_clusters + 1):n_target_genes){
-    Pi[sample.int(n = n_target_gene_clusters, size = 1), index] <- 1
+  if(ncol(Pi)>=(n_target_gene_clusters + 1)){
+    for(index in (n_target_gene_clusters + 1):n_target_genes){
+      random_cluster_index <- sample.int(n = n_target_gene_clusters, size = 1)
+      Pi[random_cluster_index, index] <- 1
+    }
   }
 
   # Pi
