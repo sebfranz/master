@@ -17,6 +17,100 @@ cluster_update <- function(metrics, n_cell_clusters, n_target_gene_clusters){
   return(d)
 }
 
+calculate_R2 <- function(n_target_gene_clusters,
+                         total_n_cells,
+                         n_cell_clusters,
+                         n_target_genes,
+                         n_regulator_genes,
+                         prev_cell_clust,
+                         out_list,
+                         train_dat){
+  print("--- n_target_gene_clusters")
+  print(str(n_target_gene_clusters))
+
+  print("--- total_n_cells")
+  print(str(total_n_cells))
+
+  print("--- n_cell_clusters")
+  print(str(n_cell_clusters))
+
+  print("--- n_target_genes")
+  print(str(n_target_genes))
+
+  print("--- n_regulator_genes")
+  print(str(n_regulator_genes))
+
+  print("--- prev_cell_clust")
+  print(str(prev_cell_clust))
+
+  print("--- out_list")
+  print(str(out_list))
+
+  print("--- train_dat")
+  print(str(train_dat))
+  # Calculate R2 -----------------------------------------------------------
+
+  # Calculate R2 for each cell for each target gene cluster
+  # Output will be a matrix R2 with target gene clusters on rows and cells in columns.
+  # Missing clusters are rows with NA.
+  # which(rep(1:n_cell_clusters, n_target_gene_clusters) will be a vector telling you which rows will be in which cell cluster.
+  # Example output R2:
+  # num [1:6, 1:16000]
+  #          X1        X2        X3        X4        X5        X6        X7
+  # 1 0.9999561 0.9999349 0.9999627 0.9999567 0.9999449 0.9999573 0.9999398
+  # 2        NA        NA        NA        NA        NA        NA        NA
+  # 3 0.9999384 0.9999202 0.9999379 0.9999344 0.9999321 0.9999429 0.9999274
+  # 4        NA        NA        NA        NA        NA        NA        NA
+  # 5 0.9999168 0.9998943 0.9999142 0.9999105 0.9999101 0.9999234 0.9999042
+  # 6        NA        NA        NA        NA        NA        NA        NA
+
+  # Use a cell cluster as a 'from_cell_cluster' and then
+  # calculate R2/predicitive R2 for that cluster applied to
+  # all cell clusters' target gene clusters one by one.
+
+  # R2 <- matrix(nrow=sum(n_target_gene_clusters), ncol=total_n_cells)
+  adjusted_R2 <- matrix(nrow=sum(n_target_gene_clusters), ncol=total_n_cells)
+  # MSE <- matrix(nrow=sum(n_target_gene_clusters), ncol=total_n_cells)
+  for(i_from_cell_cluster in 1:n_cell_clusters){
+    # xvals expression of regulator cells in cell cluster i_from_cell_cluster
+    # yvals expression of target cells in cell cluster i_from_cell_cluster
+    regulator_gene_index <- (1:(n_target_genes+n_regulator_genes) > n_target_genes)
+    target_gene_index <- (1:(n_target_genes+n_regulator_genes) <= n_target_genes)
+    from_cell_cluster_index <- which(prev_cell_clust == i_from_cell_cluster)
+    xvals <- train_dat[regulator_gene_index, from_cell_cluster_index, drop=FALSE]
+    yvals <-  train_dat[target_gene_index, from_cell_cluster_index, drop=FALSE]
+    i_total_target_geneclusters <- 0
+    # Now we have xvals and yvals for a cell cluster we can find betas for each target gene cluster and calculate R2
+    for(i_target_cell_cluster in 1:n_cell_clusters){
+      target_gene_cluster_index <- out_list[[i_target_cell_cluster]]$results[[1]]$output[[1]]$cluster[1:n_target_genes]
+      for(i_target_gene_cluster in 1:n_target_gene_clusters[[i_target_cell_cluster]]){
+        i_total_target_geneclusters <- i_total_target_geneclusters + 1
+        target_gene_ids_in_cluster_i <- which(target_gene_cluster_index==i_target_gene_cluster)
+        betas_for_gene_cluster_i <- out_list[[i_target_cell_cluster]]$results[[1]]$output[[1]]$coeffs[[i_target_gene_cluster]]
+        # If no target gene was assigned to this cluster we don't calculate anything.
+        # This means rows of NA will represent target gene clusters that disappeared.
+        if(!is.null(betas_for_gene_cluster_i)) {
+          target_gene_cluster_yvals <- yvals[target_gene_ids_in_cluster_i, , drop=FALSE]
+
+          SST <- (target_gene_cluster_yvals - mean(target_gene_cluster_yvals))^2
+          SST <- as.matrix(SST, nrow=length(target_gene_ids_in_cluster_i), ncol=ncol(target_gene_cluster_yvals))
+          SST_sum_adjusted <- sum(SST)/(ncol(target_gene_cluster_yvals) - nrow(xvals))
+
+          SSR <- (target_gene_cluster_yvals- t(betas_for_gene_cluster_i) %*% xvals)^2
+          SSR <- as.matrix(SSR, nrow=length(target_gene_ids_in_cluster_i), ncol=ncol(target_gene_cluster_yvals))
+          SSR_sum_adjusted <- colSums(SSR)/(ncol(target_gene_cluster_yvals) - 1)
+
+          # R2[i_total_target_geneclusters, prev_cell_clust == i_from_cell_cluster] <- 1 - colSums(SSR)/sum(SST)
+          adjusted_R2[i_total_target_geneclusters, prev_cell_clust == i_from_cell_cluster] <- 1 - SSR_sum_adjusted/SST_sum_adjusted
+          # MSE[i_total_target_geneclusters, prev_cell_clust == i_from_cell_cluster] <- colMeans(SSR)
+        }
+      }
+    }
+  }
+
+  return(adjusted_R2)
+}
+
 biclust <- function(max_iter=50,
                     initial_cluster_history,
                     is_regulator,  # Input dataset has to have rows sorted so that targets are highest
@@ -91,67 +185,14 @@ biclust <- function(max_iter=50,
 
 
 
-    # Calculate R2 -----------------------------------------------------------
-
-    # Calculate R2 for each cell for each target gene cluster
-    # Output will be a matrix R2 with target gene clusters on rows and cells in columns.
-    # Missing clusters are rows with NA.
-    # which(rep(1:n_cell_clusters, n_target_gene_clusters) will be a vector telling you which rows will be in which cell cluster.
-    # Example output R2:
-    # num [1:6, 1:16000]
-    #          X1        X2        X3        X4        X5        X6        X7
-    # 1 0.9999561 0.9999349 0.9999627 0.9999567 0.9999449 0.9999573 0.9999398
-    # 2        NA        NA        NA        NA        NA        NA        NA
-    # 3 0.9999384 0.9999202 0.9999379 0.9999344 0.9999321 0.9999429 0.9999274
-    # 4        NA        NA        NA        NA        NA        NA        NA
-    # 5 0.9999168 0.9998943 0.9999142 0.9999105 0.9999101 0.9999234 0.9999042
-    # 6        NA        NA        NA        NA        NA        NA        NA
-
-    # Use a cell cluster as a 'from_cell_cluster' and then
-    # calculate R2/predicitive R2 for that cluster applied to
-    # all cell clusters' target gene clusters one by one.
-    MSE <- matrix(nrow=sum(n_target_gene_clusters), ncol=total_n_cells)
-    R2 <- matrix(nrow=sum(n_target_gene_clusters), ncol=total_n_cells)
-    for(i_from_cell_cluster in 1:n_cell_clusters){
-      # xvals expression of regulator cells in cell cluster i_from_cell_cluster
-      # yvals expression of target cells in cell cluster i_from_cell_cluster
-      regulator_gene_index <- (1:(n_target_genes+n_regulator_genes) > n_target_genes)
-      target_gene_index <- (1:(n_target_genes+n_regulator_genes) <= n_target_genes)
-      from_cell_cluster_index <- which(prev_cell_clust == i_from_cell_cluster)
-      xvals <- train_dat[regulator_gene_index, from_cell_cluster_index, drop=FALSE]
-      yvals <-  train_dat[target_gene_index, from_cell_cluster_index, drop=FALSE]
-      i_total_target_geneclusters <- 0
-      # Now we have xvals and yvals for a cell cluster we can find betas for each target gene cluster and calculate R2
-      for(i_target_cell_cluster in 1:n_cell_clusters){
-        target_gene_cluster_index <- out_list[[i_target_cell_cluster]]$results[[1]]$output[[1]]$cluster[1:n_target_genes]
-        print("target_gene_cluster_index")
-        print(str(out_list[[i_target_cell_cluster]]))
-        for(i_target_gene_cluster in 1:n_target_gene_clusters[[i_target_cell_cluster]]){
-          i_total_target_geneclusters <- i_total_target_geneclusters + 1
-          target_gene_ids_in_cluster_i <- which(target_gene_cluster_index==i_target_gene_cluster)
-          betas_for_gene_cluster_i <- out_list[[i_target_cell_cluster]]$results[[1]]$output[[1]]$coeffs[[i_target_gene_cluster]]
-          # If no target gene was assigned to this cluster we don't calculate anything.
-          # This means rows of NA will represent target gene clusters that disappeared.
-          if(!is.null(betas_for_gene_cluster_i)) {
-            target_gene_cluster_yvals <- yvals[target_gene_ids_in_cluster_i, , drop=FALSE]
-            SST <- (target_gene_cluster_yvals - mean(target_gene_cluster_yvals))^2
-            SST <- as.matrix(SST, nrow=length(target_gene_ids_in_cluster_i), ncol=ncol(target_gene_cluster_yvals))
-            # SST_sum_adjusted <- sum(SST)/(ncol(target_gene_cluster_yvals) - nrow(xvals))
-            SSR <- (target_gene_cluster_yvals- t(betas_for_gene_cluster_i) %*% xvals)^2
-            SSR <- as.matrix(SSR, nrow=length(target_gene_ids_in_cluster_i), ncol=ncol(target_gene_cluster_yvals))
-            # SSR_sum_adjusted <- colSums(SSR)/(ncol(target_gene_cluster_yvals) - 1)
-            if(i_from_cell_cluster==i_target_cell_cluster){
-              R2[i_total_target_geneclusters, prev_cell_clust == i_from_cell_cluster] <- 1 - colSums(SSR)/sum(SST)
-              # R2[i_total_target_geneclusters, prev_cell_clust == i_from_cell_cluster] <- 1 - SSR_sum_adjusted/SST_sum_adjusted
-            }else{
-              R2[i_total_target_geneclusters, prev_cell_clust == i_from_cell_cluster] <- 1 - colSums(SSR)/sum(SST)
-              # R2[i_total_target_geneclusters, prev_cell_clust == i_from_cell_cluster] <- 1 - SSR_sum_adjusted/SST_sum_adjusted
-            }
-            MSE[i_total_target_geneclusters, prev_cell_clust == i_from_cell_cluster] <- colMeans(SSR)
-          }
-        }
-      }
-    }
+    R2 <- calculate_R2(n_target_gene_clusters,
+                       total_n_cells,
+                       n_cell_clusters,
+                       n_target_genes,
+                       n_regulator_genes,
+                       prev_cell_clust,
+                       out_list,
+                       train_dat)
 
     print("R2----------")
     print(str(R2))
@@ -178,7 +219,7 @@ biclust <- function(max_iter=50,
     # here we will compare the minimal mse per gene cluster model per cell cluster.
     # Could also use other metric than mse, e.g. r2
 
-    if (all(is.na(MSE)) | all(is.na(R2))){
+    if (all(is.na(R2))){
       stop("scregclust put everything in noise cluster for all cellclusters. Exiting.")
     }
     updated_cell_clust <-  cluster_update(-R2, n_cell_clusters, n_target_gene_clusters)
