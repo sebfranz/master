@@ -202,11 +202,11 @@ generate_dummy_data_for_scregclust <- function(
     for(j in 1 : n_target_genes){
       Z_t[,j] <-
         Z_t[,j] +
-        Pi[i,j] *               #  True cluster allocation, zero if Z_t[,j] is
-        (                       # not in cluster i
-          Z_r[,R2R_i(i)] %*%    #  Gene expression of regulators of cluster i
-            diag_(S2S_i(i)) %*%  #  signs for wether regulators are stim or repress
-            Beta2Beta_i(i)[,j]  #  how much reg of cluster i affects target j
+        Pi[i,j] *                #  True cluster allocation, zero if Z_t[,j] is not in cluster i
+        (
+          Z_r[,R2R_i(i)] %*%     # Gene expression of regulators of cluster i
+            diag_(S2S_i(i)) %*%  # Signs for whether regulators are stimulating or repressing
+            Beta2Beta_i(i)[,j]   # How much reg of cluster i affects target j
         )
     }
     # cat(paste0("building cluster ", i,"\n_cells"))
