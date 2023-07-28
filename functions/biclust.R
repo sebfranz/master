@@ -75,20 +75,26 @@ calculate_R2_per_cluster <- function(n_target_gene_clusters,
     xvals <- train_dat[regulator_gene_index, from_cell_cluster_index, drop=FALSE]
     yvals <-  train_dat[target_gene_index, from_cell_cluster_index, drop=FALSE]
     # TODO: ska xvals och yvals alltid vara from_cell_cluster_index?
-    center_all = TRUE
+    center_all = FALSE
     if(center_all){
+      yvals <- t(yvals)
+      xvals <- t(xvals)
       yvals <- scale(yvals, scale=FALSE)
       xvals <- scale(xvals)
+      yvals <- t(yvals)
+      xvals <- t(xvals)
     }else{
+      yvals <- t(yvals)
+      xvals <- t(xvals)
       # print("cell data split")
       training_data_ind <- which(CELL_DATA_SPLIT[[i_from_cell_cluster]]==1)
       test_data_ind <- which(CELL_DATA_SPLIT[[i_from_cell_cluster]]==2)
-      if(length(training_data_ind)>length(test_data_ind)){
-        test_data_ind <- c(test_data_ind, training_data_ind[1])
-      }
-      if(length(training_data_ind)<length(test_data_ind)){
-        training_data_ind <- c(training_data_ind, test_data_ind[1])
-      }
+      # if(length(training_data_ind)>length(test_data_ind)){
+      #   test_data_ind <- c(test_data_ind, training_data_ind[1])
+      # }
+      # if(length(training_data_ind)<length(test_data_ind)){
+      #   training_data_ind <- c(training_data_ind, test_data_ind[1])
+      # }
       # print(str(training_data_ind))
       # print(str(test_data_ind))
       # print("yvals")
@@ -96,11 +102,14 @@ calculate_R2_per_cluster <- function(n_target_gene_clusters,
       org_yvals <- yvals
       org_xvals <- xvals
       # TODO: figure what to do when uneven train/test-split
-      yvals[,training_data_ind] <- scale(yvals[,training_data_ind], scale = FALSE)
-      xvals[,training_data_ind] <- scale(xvals[,training_data_ind])
+      yvals[training_data_ind,] <- scale(yvals[training_data_ind,], scale = FALSE)
+      xvals[training_data_ind,] <- scale(xvals[training_data_ind,])
 
-      yvals[,test_data_ind] <- scale(yvals[,test_data_ind], colMeans(org_yvals[,training_data_ind]), scale = FALSE)
-      xvals[,test_data_ind] <- scale(xvals[,test_data_ind], colMeans(org_xvals[,training_data_ind]), apply(org_xvals[,training_data_ind], 2, sd))
+      yvals[test_data_ind,] <- scale(yvals[test_data_ind,], colMeans(org_yvals[training_data_ind,]), scale = FALSE)
+      xvals[test_data_ind,] <- scale(xvals[test_data_ind,], colMeans(org_xvals[training_data_ind,]), apply(org_xvals[training_data_ind,], 2, sd))
+
+      yvals <- t(yvals)
+      xvals <- t(xvals)
     }
     # i_total_target_geneclusters <- 0
     # Now we have xvals and yvals for a cell cluster we can find betas for each target gene cluster and calculate R2
