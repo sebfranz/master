@@ -192,7 +192,7 @@ for(i_main in 1:max_iter){
   # fit model to each cell cluster
   models <- vector("list", length = n_cell_clusters)
   for(cell_cluster in 1:n_cell_clusters){
-    models[[cell_cluster]] <- lm(log(dat[,1]) ~ dat[,-1])
+    models[[cell_cluster]] <- lm(dat[,1] ~ dat[,-1])
   }
   # plot(models[[1]])
 
