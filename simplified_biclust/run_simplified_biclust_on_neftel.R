@@ -8,6 +8,7 @@ execution_path <- dirname(rstudioapi::getActiveDocumentContext()$path)
 sapply(list.files(paste0(execution_path,"/../functions/"),recursive = T),
        function(nm) source(paste0(execution_path,"/../functions/", nm)))
 
+setwd(execution_path)
 set.seed(1234)
 
 # Set variables ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -40,11 +41,6 @@ out<-scregclust_format(z_g1)
 sample_assignment<-out[[2]]
 is_predictor<-out[[3]]
 
-sum(is_predictor==1)
-length(is_predictor)
-length(is_malignant)
-dim(z_g1)
-
 #put some stuff in order
 z_g1_ordered <- z_g1[order(is_predictor),order(is_malignant)]
 metaData     <- metaData[order(is_malignant)]
@@ -55,8 +51,7 @@ rm(z_g1)
 rm(Neftel_g1)
 
 dim_(z_g1_ordered)
-dim_(is_predictor)
-dim_(is_malignant)
+
 
 
 ############### code to run scregclust if we want to ##################
@@ -94,14 +89,52 @@ dim_(is_malignant)
 true_cell_clust <- is_malignant + 1
 n_cell_clusters<- length(unique(true_cell_clust))
 
+cell_sample <- c(sample(which(is_malignant==0), 1500 ),sample(which(is_malignant==1), 1500 ) )
+# cell_sample <- 1:length(is_malignant)
+
+#optional line to make next few lines not take forever
+cols2keep <- sample(cell_sample,100, replace = F)
+
+
+
 # initial_cell_clust <- sample(1:n_cell_clusters, n_cells, replace = T)
 
+#optional: slice out some rows for efficiency
+dim(z_g1_ordered)
 
-# Kod för att flytta 1% av cellerna i varje kluster till ett annat kluster.
-disturbed_initial_cell_clust <- true_cell_clust
-disturbed_fraction <- 0.20
+regulator_vars <- sapply(which(is_predictor==1), function(i) var(z_g1_ordered[i,cols2keep]))
+
+#pick out top 2 variance regulator genes
+high_variance_regulators <- which(regulator_vars >= sort( regulator_vars, decreasing = T)[2])
+
+#shift to correct index in entire dataset
+high_variance_regulators <- high_variance_regulators + sum(is_predictor == 0)
+
+rm(regulator_vars)
+# target_vars <- sapply(which(is_predictor==0), function(i) var(z_g1_ordered[i,]))
+
+#pick out chich targets are highly correlated with either of the chosen regulators
+target_vars <- sapply(which(is_predictor==0), function(i) max(abs(cor(t(z_g1_ordered[c(i,high_variance_regulators),cols2keep]))[1,c(2,3)])))
+
+#pick out top 2 variance target genes
+high_corr_targets <- which(target_vars >= sort( target_vars, decreasing = T)[2])
+
+rm(target_vars)
+#implement a simplified version of biclust here. We want to sidestep scregclust but keep the rest of the concept intact
+
+#first variant simplified_biclust()
+max_iter <- 50
+
+
+#find initial cluster labels
+true_cell_clust_sample <- true_cell_clust[cell_sample]
+n_target_gene_clusters <- 1 #we are not clustering target genes for now
+
+# Kod för att flytta % av cellerna i varje kluster till ett annat kluster.
+disturbed_initial_cell_clust <- true_cell_clust_sample
+disturbed_fraction <- 0.15
 for(i_cluster in 1:n_cell_clusters){
-  indexes_of_cluster <- which(true_cell_clust == i_cluster)
+  indexes_of_cluster <- which(true_cell_clust_sample == i_cluster)
   some_of_those_indexes <- sample(indexes_of_cluster, size=as.integer(length(indexes_of_cluster)*disturbed_fraction), replace = F)
   disturbed_initial_cell_clust[some_of_those_indexes] <-
     sample(c(1:n_cell_clusters)[-i_cluster],
@@ -109,67 +142,29 @@ for(i_cluster in 1:n_cell_clusters){
 }
 
 
-cell_cluster_history <- cbind(true_cell_clust, disturbed_initial_cell_clust)
+cell_cluster_history <- cbind(true_cell_clust_sample, disturbed_initial_cell_clust)
 colnames(cell_cluster_history) <- c("True allocation", "Disturbed allocation")
 
-#optional: slice out some rows for efficiency
-dim(z_g1_ordered)
-cols2keep <- sample(ncol(z_g1_ordered), 4500)
-
-vars <- sapply(which(is_predictor==0), function(i) var(z_g1_ordered[i,]))
-#pick out top 500 variance target genes
-vars_ <- which(vars>sort(vars,decreasing = T)[500])
-
-
-
-#z_g1_ordered
-#is_predictor
-#is_malignant
-
-
-#Make a simplified version of biclust here. We want to sidestep scregclust but keep the rest of the concept intact
-
-#This essentially means more simply to fit a model for each cluster,
-# get SOME metric for model fit for a new observation(predictive r2)
-#and reassign clusters based on this
-
-
-#first. the almost trivial case: a normal linear model between all regulatory genes and ONE target (response) gene
-
-#second, a coop lasso using all target genes, but no clustering
-#alternatively, a class of ordinary linear models
-# install.packages('scoop')
-# library(scoop)
-
-#third step, would be scregclust, a coop lasso clustering method
-
-
-#first variant simplified_biclust()
-max_iter <- 50
-# cell_sample <- c(sample(which(is_malignant==0), 1500 ),sample(which(is_malignant==1), 1500 ) )
-
-cell_sample <- 1:length(is_malignant)
-
-#find initial cluster labels
-initial_clustering <- disturbed_initial_cell_clust[cell_sample]
-true_cell_clust_sample <- true_cell_clust[cell_sample]
-n_target_gene_clusters <- 1 #we are not clustering target genes for now
-
-#find which target gene has highest difference in mean expression between noncancer and cancer
-means1  <- sapply(1:sum((is_predictor==0)), function(row) mean(z_g1_ordered[which(is_predictor==0)[row], cell_sample[true_cell_clust_sample ==1]]) )
-means2  <- sapply(1:sum((is_predictor==0)), function(row) mean(z_g1_ordered[which(is_predictor==0)[row], cell_sample[true_cell_clust_sample ==2]]) )
-max_var_target_gene <- which(is_predictor==0)[which.max(means1-means2)]
+# #find which target gene has highest difference in mean expression between noncancer and cancer
+# means1  <- sapply(1:sum((is_predictor==0)), function(row) mean(z_g1_ordered[which(is_predictor==0)[row], cell_sample[true_cell_clust_sample ==1]]) )
+# means2  <- sapply(1:sum((is_predictor==0)), function(row) mean(z_g1_ordered[which(is_predictor==0)[row], cell_sample[true_cell_clust_sample ==2]]) )
+# max_var_target_gene <- which(is_predictor==0)[which.max(means1-means2)]
 
 #gather data and transpose to put
-dat <- t(z_g1_ordered[c(max_var_target_gene,which(is_predictor==1)), cell_sample])
+# dat <- t(z_g1_ordered[c(max_var_target_gene,which(is_predictor==1)), cell_sample])
+dat <- t(z_g1_ordered[c( high_corr_targets, high_variance_regulators), cell_sample])
 dim_(dat)
 
+
+initial_clustering <- disturbed_initial_cell_clust
 dim_(initial_clustering)
 
 #set up some variables
 n_cell_clusters = length(unique(initial_clustering))
-n_target_genes = ncol(dat) - sum(is_predictor==1)
-n_regulator_genes = sum(is_predictor==1)
+# n_target_genes = ncol(dat) - sum(is_predictor==1)
+# n_regulator_genes = sum(is_predictor==1)
+n_target_genes = 2
+n_regulator_genes = 2
 
 
 #set up cluster history
@@ -182,7 +177,7 @@ cell_cluster_history[, 'Initial clustering'] <- initial_clustering
 #preallocate all r2 matrices for later analysis if feasible
 r2_all <- vector("list", length = max_iter)
 #set flag for breaking out of the loop.
-stop_iterating_flag = T
+stop_iterating_flag = F
 
 current_cell_cluster_allocation <- initial_clustering
 
@@ -192,7 +187,8 @@ for(i_main in 1:max_iter){
   # fit model to each cell cluster
   models <- vector("list", length = n_cell_clusters)
   for(cell_cluster in 1:n_cell_clusters){
-    models[[cell_cluster]] <- lm(dat[,1] ~ dat[,-1])
+    current_rows <- which(current_cell_cluster_allocation == cell_cluster)
+    models[[cell_cluster]] <- lm(dat[current_rows,c(1,2)] ~ dat[current_rows,c(3,4)])
   }
   # plot(models[[1]])
 
@@ -200,24 +196,33 @@ for(i_main in 1:max_iter){
   r2 <- matrix(0, nrow = nrow(dat), ncol = n_cell_clusters)
 
   #first calculate the mean target gene expression in these clusters
-  #also the total sum of squares in that cluster
-  target_gene_means <- vector('numeric', length = n_cell_clusters )
-  SS_tot <- vector('numeric', length = n_cell_clusters )
+
+  target_gene_means <- matrix(0, nrow = n_cell_clusters, ncol = 2)
+  SS_tot <- matrix(0, nrow =nrow(dat), ncol = n_cell_clusters)
+
   for(cell_cluster in 1:n_cell_clusters){
-    target_gene_means[cell_cluster] <- mean(dat[which(current_cell_cluster_allocation == cell_cluster),1])
-    SS_tot[cell_cluster]  <- sum((dat[,1] - target_gene_means[cell_cluster])^2)
+    current_rows <- which(current_cell_cluster_allocation == cell_cluster)
+    target_gene_means[cell_cluster,] <- sapply(1:2, function(i) mean(dat[current_rows,i]))
+
+    #calculate norm of diff from the cluster mean for each cell
+    SS_tot[,cell_cluster]  <- rowSums((dat[,c(1,2)] - target_gene_means[cell_cluster,])^2)
   }
 
-  #now to actually caltulate predicted or 'predicted' r2
+  #now to actually calculate predictive r2
+  #this is done by calculating the norm of the difference from the model/predicted vector
+  # divided by the norm of diff from the cluster mean
+
   for(cell in 1:nrow(dat)){
     for(cell_cluster in 1:n_cell_clusters){
-      #bug fix hack: remove NA coefficients
-      if(any(is.na(models[[cell_cluster]]$coefficients))){
-        NA_coeffs <-  unname(which(is.na(models[[cell_cluster]]$coefficients)))
-        S_ERR <- (dat[cell,1] - as.vector(c(1,dat[cell,c(-1, -NA_coeffs)])) %*% models[[cell_cluster]]$coefficients[-NA_coeffs])^2
-      }
-      S_ERR <- (dat[cell,1] - as.vector(c(1,dat[cell,-1])) %*% models[[cell_cluster]]$coefficients)^2
-      r2[cell,cell_cluster] <- 1-(S_ERR/SS_tot[[cell_cluster]])
+      # #bug fix hack: remove NA coefficients
+      # if(any(is.na(models[[cell_cluster]]$coefficients))){
+      #   NA_coeffs <-  unname(which(is.na(models[[cell_cluster]]$coefficients)))
+      #   S_ERR <- (dat[cell,1] - as.vector(c(1,dat[cell,c(-1, -NA_coeffs)])) %*% models[[cell_cluster]]$coefficients[-NA_coeffs])^2
+      # }
+
+      S_ERR <- sum( (dat[cell,c(1,2)] - as.vector(c(1,dat[cell,c(-1,-2)])) %*% models[[cell_cluster]]$coefficients)^2)
+
+      r2[cell,cell_cluster] <- 1-(S_ERR / (SS_tot[cell,cell_cluster]))
     }
   }
 
@@ -271,6 +276,7 @@ for(i_main in 1:max_iter){
   }
 }
 
-plot_cluster_history(cell_cluster_history = cell_cluster_history)
-
+png("simplified biclust_simplified neftel.png")
+plot_cluster_history(cell_cluster_history = cbind( true_cell_clust_sample, cell_cluster_history))
+dev.off()
 

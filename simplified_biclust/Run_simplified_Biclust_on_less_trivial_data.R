@@ -8,6 +8,8 @@ library(aricode)  # To calculate rand index
 # sapply(list.files(paste0(execution_path,"/../functions/"),recursive = T),
 #        function(nm) source(paste0(execution_path,"/../functions/", nm)))
 
+#todo: REDO TO MAKE DATA LESS TRIVIAL
+
 library(ggplot2)
 library(ggalluvial)
 library(reshape2)
@@ -61,13 +63,6 @@ r2plot <- function(iteration, r2, prev_cell_clust){
   }
 }
 
-
-
-execution_path <- dirname(rstudioapi::getActiveDocumentContext()$path)
-
-setwd(execution_path)
-
-
 set.seed(1234)
 
 ########################################################################
@@ -84,8 +79,8 @@ true_cell_clust <- c(rep(1,num_cells/2), rep(2,num_cells/2))
 
 #build cell expression from linear model
 cell_cluster_expression <- sapply(1:n_cell_clusters, function(cellCluster) c(intercepts[cellCluster], betas[cellCluster]) %*%
-                                        t(cbind(rep(1, num_cells/2), regulator_expression[which(true_cell_clust == cellCluster)]))
-      )
+                                    t(cbind(rep(1, num_cells/2), regulator_expression[which(true_cell_clust == cellCluster)]))
+)
 
 target_expression <- c(cell_cluster_expression[,1], cell_cluster_expression[,2])
 dat <- cbind(target_expression, regulator_expression)
@@ -138,7 +133,7 @@ cell_cluster_history[, 'Initial clustering'] <- initial_clustering
 r2_all <- vector("list", length = max_iter)
 
 #set flag for breaking out of the loop.
-stop_iterating_flag = F
+stop_iterating_flag = T
 
 #set the current cell clustering
 current_cell_cluster_allocation <- initial_clustering
@@ -151,7 +146,7 @@ for(i_main in 1:max_iter){
   models <- vector("list", length = n_cell_clusters)
   for(cell_cluster in 1:n_cell_clusters){
     current_rows <- which(current_cell_cluster_allocation == cell_cluster)
-    models[[cell_cluster]] <- lm(dat[current_rows,1] ~ dat[current_rows,-1])
+    models[[cell_cluster]] <- lm(log(dat[current_rows,1]) ~ dat[current_rows,-1])
   }
   # plot(models[[1]])
 
@@ -161,12 +156,10 @@ for(i_main in 1:max_iter){
   #first calculate the mean target gene expression in these clusters
   #also the total sum of squares in that cluster
   target_gene_means <- vector('numeric', length = n_cell_clusters )
-  SS_tot <- matrix(0, nrow =nrow(dat), ncol = n_cell_clusters)
-
+  SS_tot <- vector('numeric', length = n_cell_clusters )
   for(cell_cluster in 1:n_cell_clusters){
-    current_rows <- which(current_cell_cluster_allocation == cell_cluster)
-    target_gene_means[cell_cluster] <- mean(dat[current_rows,1])
-    SS_tot[,cell_cluster]  <- (dat[,1] - target_gene_means[cell_cluster])^2
+    target_gene_means[cell_cluster] <- mean(dat[which(current_cell_cluster_allocation == cell_cluster),1])
+    SS_tot[cell_cluster]  <- sum((dat[,1] - target_gene_means[cell_cluster])^2)
   }
 
   #now to actually caltulate predicted or 'predicted' r2
@@ -178,7 +171,7 @@ for(i_main in 1:max_iter){
         S_ERR <- (dat[cell,1] - as.vector(c(1,dat[cell,c(-1, -NA_coeffs)])) %*% models[[cell_cluster]]$coefficients[-NA_coeffs])^2
       }
       S_ERR <- (dat[cell,1] - as.vector(c(1,dat[cell,-1])) %*% models[[cell_cluster]]$coefficients)^2
-      r2[cell,cell_cluster] <- 1-(S_ERR / (SS_tot[cell,cell_cluster]))
+      r2[cell,cell_cluster] <- 1-(S_ERR/SS_tot[[cell_cluster]])
     }
   }
 
@@ -236,13 +229,13 @@ for(i_main in 1:max_iter){
 
 
 
-# r2plot(iteration = i_main,
-#        r2 = r2,
-#        prev_cell_clust = cell_cluster_history[,i_main -1 + initial_column_padding])
+r2plot(iteration = i_main,
+       r2 = r2,
+       prev_cell_clust = cell_cluster_history[,i_main -1 + initial_column_padding])
 
 
 
-png('simplified_biclust_triv_data.png')
-plot_cluster_history(cell_cluster_history =  cell_cluster_history)
-dev.off()
+
+plot_cluster_history(cell_cluster_history = cell_cluster_history)
+
 
