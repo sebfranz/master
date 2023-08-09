@@ -1,11 +1,12 @@
 ---
 title: "Simplified_biclust_walkthrough"
 output: html_document
-date: "2023-07-23" 
+date: "2023-aug-09" 
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(cache = FALSE)
 library(tidyverse)
 library(aricode)  # To calculate rand index
 library(ggplot2)
@@ -191,13 +192,17 @@ p <- ggplot(as.data.frame(dat[,]), aes(x = regulator_expression, y = target_expr
   geom_abline(intercept = coef(models[[1]])[1], slope = coef(models[[1]])[2], color = "red") +
   geom_abline(intercept = coef(models[[2]])[1], slope = coef(models[[2]])[2], color = "cyan") +
   labs(title = "Scatterplot with Regression Lines")
-p + labs(color = "Cluster")
+
 # Reset changes used for this plot
 dat <- dat[,1:2]
+
+#plot output
+p + labs(color = "Cell cluster")
+
 ```
 
 Now that we have fitted some models, it's time to re-allocate cells to appropriate clusters.
-To do this, we need to calculate the r2/predicted r2 for each cell, for each cell cluster. 
+To do this, we need to calculate the predictive r2 for each individual cell, for how well it fits into the model fitted to each cell cluster. 
 
 ```{r}
 # For all cells, calculate the predicted r2 for all cell clusters.
@@ -211,6 +216,7 @@ To do this, we need to calculate the r2/predicted r2 for each cell, for each cel
     target_gene_means[cell_cluster] <- mean(dat[which(current_cell_cluster_allocation == cell_cluster),1])
     SS_tot[cell_cluster]  <- sum((dat[,1] - target_gene_means[cell_cluster])^2)
   }
+  
 
   # Now to actually caltulate predicted or 'predicted' r2
   for(cell in 1:nrow(dat)){
@@ -259,11 +265,75 @@ Usually this would raise the concern of over-fitting, since a cell was used to f
 
 ```{r}
 
-cell_cluster_history <-cbind('Cell ID' = cell_cluster_history[,1],
+cell_cluster_history_plotting <-cbind('Cell ID' = cell_cluster_history[,1],
                              true_cell_clust,
                              cell_cluster_history[,c(2,3)])
 
-plot_cluster_history(cell_cluster_history = cell_cluster_history)
+plot_cluster_history(cell_cluster_history = cell_cluster_history_plotting)
   
 ```
+So in this super simple version the cells find their way back. But in more complicated version (ie the neftel 2019) things go haywire.
 
+Addendum: Similar plots with our current understanding of Felix's method:
+
+
+```{r  fig.show="hold", out.width="50%"}
+
+ #Felix version would not do as we did above, but would instead , as i understand, do
+  target_gene_means <- vector('numeric', length = nrow(dat) )
+  SS_tot <- vector('numeric', length = nrow(dat))
+  
+  r2_alt <- matrix(0, nrow = nrow(dat), ncol = n_cell_clusters)
+  for(cell in 1:nrow(dat)){
+    #note that this instead calculated the mean target gene expression for the cell
+    #and return this as a scalar
+    target_gene_means[cell] <- mean(dat[cell, 1:n_target_genes])  
+    
+    # Here i am not sure what we should do.
+    #normal r2 would compare the target gene expression vector
+    #predicted by the model to an average
+    SS_tot[cell]  <- sum((dat[,1] - target_gene_means[cell])^2) 
+    
+  }
+  
+  for(cell in 1:nrow(dat)){
+    for(cell_cluster in 1:n_cell_clusters){
+      # Bug fix hack: remove NA coefficients
+      if(any(is.na(models[[cell_cluster]]$coefficients))){
+        NA_coeffs <-  unname(which(is.na(models[[cell_cluster]]$coefficients)))
+        S_ERR <- (dat[cell,1] - as.vector(c(1,dat[cell,c(-1, -NA_coeffs)])) %*% models[[cell_cluster]]$coefficients[-NA_coeffs])^2
+      }
+      S_ERR <- (dat[cell,1] - as.vector(c(1,dat[cell,-1])) %*% models[[cell_cluster]]$coefficients)^2
+      r2_alt[cell,cell_cluster] <- 1-(S_ERR/SS_tot[cell])
+    }
+  }
+  
+  
+  r2plot(iteration = i_main,
+       r2 = r2_alt,
+       prev_cell_clust = true_cell_clust)
+  
+  ggplot(data = as.tibble(cbind(r2_alt, true_cell_clust)),
+       aes(x = V1, y = V2, color = as.factor(true_cell_clust))
+      ) + 
+  geom_point() +
+    geom_abline(intercept = 0, slope = 1)+
+    labs(x = "r2 for fitting into cluster 1", y = "r2 for fitting into cluster 2")
+  
+  # Update cluster allocations
+  updated_cell_clust <-  sapply(1:nrow(r2_alt), function(row) which.min(r2_alt[row,]))
+
+
+  # Update data in cell_cluster_history
+  cell_cluster_history[, i_main + initial_column_padding] <- updated_cell_clust
+  
+  RI(true_cell_clust,updated_cell_clust)
+
+cell_cluster_history_plotting <-cbind('Cell ID' = cell_cluster_history[,1],
+                             true_cell_clust,
+                             cell_cluster_history[,c(2,3)])
+
+plot_cluster_history(cell_cluster_history = cell_cluster_history_plotting)
+
+```
+So in this situation the two methods do the same thing.

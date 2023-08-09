@@ -1,11 +1,12 @@
 ---
 title: "Simplified_biclust_walkthrough"
 output: html_document
-date: "2023-07-23" 
+date: "2023-aug-09" 
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(cache = FALSE)
 library(tidyverse)
 library(aricode)  # To calculate rand index
 library(ggplot2)
@@ -318,10 +319,6 @@ Addendum: Similar plots with our current understanding of Felix's method:
   geom_point() +
     geom_abline(intercept = 0, slope = 1)+
     labs(x = "r2 for fitting into cluster 1", y = "r2 for fitting into cluster 2")
-  
-  ggplot(data = as.tibble(cbind(r2, r2_alt)),
-         aes(x = V1, y = V3)
-       ) + geom_point()
   
   # Update cluster allocations
   updated_cell_clust <-  sapply(1:nrow(r2_alt), function(row) which.min(r2_alt[row,]))
