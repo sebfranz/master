@@ -218,7 +218,7 @@ To do this, we need to calculate the predictive r2 for each individual cell, for
   }
   
 
-  # Now to actually caltulate predicted or 'predicted' r2
+  # Now to actually calculate predicted or 'predicted' r2
   for(cell in 1:nrow(dat)){
     for(cell_cluster in 1:n_cell_clusters){
       # Bug fix hack: remove NA coefficients

@@ -102,15 +102,21 @@ Next we use these parameters to generate target gene expression.
 ```{r target expression ,fig.show="hold", out.width="50%"}
 
 # Build cell expression from linear model
+# | intercept, beta | x | r11, r12 |
+#                       | r21, r22 |
+#                       |    ...   |
+# For every cell cluster, 1x2 * 2x50
 cell_cluster_expression <- sapply(1:n_cell_clusters, function(cellCluster) c(intercepts[cellCluster], betas[cellCluster]) %*%
                                     t(cbind(rep(1, num_cells/2), regulator_expression[which(true_cell_clust == cellCluster)]))
 )
 
 target_expression <- c(cell_cluster_expression[,1], cell_cluster_expression[,2])
 dat <- cbind(target_expression, regulator_expression)
+ind_targetgenes <- c(1)
+ind_reggenes <- c(2) 
 
 hist(target_expression, breaks = 100)
-plot(dat[,c(2,1)])
+plot(dat[,c(ind_reggenes,ind_targetgenes)])
 ```
 The end goal of the real biclust is that it can use another clustering method to find initial cluster labels, and then hopefully it could improve upon this using the additional information from scregclust
 
@@ -137,7 +143,7 @@ Now it's time to actually do something resembling biclust.
 
 The real thing would obviously work for many iterations, but for now lets just walk through one iteration.
 
-First we set up and preallocate some variables that we'll use later.
+First we set up and pre-allocate some variables that we'll use later.
 
 ```{r}
 i_main <- 1  # Main iteration variable, just set it to one for now.
@@ -197,37 +203,48 @@ p <- ggplot(as.data.frame(dat[,]), aes(x = regulator_expression, y = target_expr
 dat <- dat[,1:2]
 
 #plot output
-p + labs(color = "Cell cluster")
+p + labs(color = "Starting cell cluster allocation")
 
 ```
 
 Now that we have fitted some models, it's time to re-allocate cells to appropriate clusters.
-To do this, we calculate the probability of each cell to follow from each linear model. This is an e xtremely simplified version of what we will later look into. 
-Since there is only one regulator gene, we will skip the L1 penalty for adding coeffitients that we would use in a larger model, and instead only look at the negative loglikelyhood
+
+To do this, we calculate the probability of each cell to follow from each linear model. This is an extremely simplified version of what we will later look into.
+
+Since there is only one regulator gene, we will skip the L1 penalty for adding coefficients that we would use in a larger model, and instead only look at the negative log-likelihood.
 
 
 ```{r}
-  # For all cells, calculate the likelyhood of coming from the model corresponding to each 
+  # For all cells, calculate the likelihood of coming from the model corresponding to each 
   loglike <- matrix(0, nrow = nrow(dat), ncol = n_cell_clusters)
 
-  #calculate the residual target gene variance for each gene and cluster
-    #so just one gene
+  # Calculate the residual target gene variance for each gene and cluster
+  # (so just one gene).
   TARGET_GENE_RESIDUAL_VARIANCE <-  matrix(0, nrow = n_target_genes, ncol = n_cell_clusters)
+  std_of_residuals_of_target_genes <-  matrix(0, nrow = n_target_genes, ncol = n_cell_clusters)
+  # dat is dat <- cbind(target_expression, regulator_expression), e.g. a 2x100, with e.g. the first 50 rows being true cell cluster 1
+  # 100x2 * 2x1 
   for(cell_cluster in 1:n_cell_clusters){
-    TARGET_GENE_RESIDUAL_VARIANCE[cell_cluster] <- mean((as.matrix(cbind(rep(1,nrow(dat)),dat[,-1])) %*% models[[cell_cluster]]$coefficients)^2)
+    intercept_and_regulatorgenes <- as.matrix(cbind(rep(1,nrow(dat)),dat[,ind_reggenes]))  # 100x2
+    TARGET_GENE_RESIDUAL_VARIANCE[cell_cluster] <- mean((intercept_and_regulatorgenes %*% models[[cell_cluster]]$coefficients)^2)
+    
+    current_rows <- which(current_cell_cluster_allocation == cell_cluster)
+    std_of_residuals_of_target_genes_temp <- dat[current_rows,ind_targetgenes] - (intercept_and_regulatorgenes[current_rows,] %*% models[[cell_cluster]]$coefficients)
+    std_of_residuals_of_target_genes[cell_cluster]  <- var(std_of_residuals_of_target_genes_temp)
+    # std_of_residuals_of_target_genes[cell_cluster] <- mean((std_of_residuals_of_target_genes_temp-mean(std_of_residuals_of_target_genes_temp))^2)
   }
   
-  # Now to actually caltulate predicted or 'predicted' r2
+  # Now to actually calculate predicted or 'predicted' r2
   for(cell in 1:nrow(dat)){
     for(cell_cluster in 1:n_cell_clusters){
       # Bug fix hack: remove NA coefficients
       if(any(is.na(models[[cell_cluster]]$coefficients))){
         NA_coeffs <-  unname(which(is.na(models[[cell_cluster]]$coefficients)))
-        S_ERR <- (dat[cell,1] - as.vector(c(1,dat[cell,c(-1, -NA_coeffs)])) %*% models[[cell_cluster]]$coefficients[-NA_coeffs])^2
+        S_ERR <- (dat[cell,ind_targetgenes] - as.vector(c(1,dat[cell,c(-1, -NA_coeffs)])) %*% models[[cell_cluster]]$coefficients[-NA_coeffs])^2
       }
-      SQUARED_ERROR <- (dat[cell,1] - as.vector(c(1,dat[cell,-1])) %*% models[[cell_cluster]]$coefficients)^2
+      SQUARED_ERROR <- (dat[cell,ind_targetgenes] - as.vector(c(1,dat[cell,ind_reggenes])) %*% models[[cell_cluster]]$coefficients)^2
       
-      loglike[cell,cell_cluster] <- SQUARED_ERROR / TARGET_GENE_RESIDUAL_VARIANCE[cell_cluster]
+      loglike[cell,cell_cluster] <- SQUARED_ERROR / std_of_residuals_of_target_genes[cell_cluster]
     }
   }
 
@@ -237,12 +254,14 @@ Since there is only one regulator gene, we will skip the L1 penalty for adding c
        r2 = loglike,
        prev_cell_clust = true_cell_clust)
 
-  ggplot(data = as.tibble(cbind(loglike, true_cell_clust)),
+  p <- ggplot(data = as.tibble(cbind(loglike, true_cell_clust)),
        aes(x = V1, y = V2, color = as.factor(true_cell_clust))
       ) +
-  geom_point() +
-    geom_abline(intercept = 0, slope = 1)+
-    labs(x = "loglike for fitting into cluster 1", y = "loglike for fitting into cluster 2")
+      geom_point() +
+        geom_abline(intercept = 0, slope = 1)+
+        labs(x = "Log-likelihood for fitting into cluster 1", y = "Log-likelihood for fitting into cluster 2")
+  
+  p + labs(color = "True cell cluster")
 
 ```
 
@@ -292,7 +311,7 @@ for(cell in 1:nrow(dat)){
   # Here i am not sure what we should do.
   #normal r2 would compare the target gene expression vector
   #predicted by the model to an average
-  SS_tot[cell]  <- sum((dat[,1] - target_gene_means[cell])^2)
+  SS_tot[cell]  <- sum((dat[,ind_targetgenes] - target_gene_means[cell])^2)
 
 }
 
@@ -301,9 +320,9 @@ for(cell in 1:nrow(dat)){
     # Bug fix hack: remove NA coefficients
     if(any(is.na(models[[cell_cluster]]$coefficients))){
       NA_coeffs <-  unname(which(is.na(models[[cell_cluster]]$coefficients)))
-      S_ERR <- (dat[cell,1] - as.vector(c(1,dat[cell,c(-1, -NA_coeffs)])) %*% models[[cell_cluster]]$coefficients[-NA_coeffs])^2
+      S_ERR <- (dat[cell,ind_targetgenes] - as.vector(c(1,dat[cell,c(ind_reggenes, -NA_coeffs)])) %*% models[[cell_cluster]]$coefficients[-NA_coeffs])^2
     }
-    S_ERR <- (dat[cell,1] - as.vector(c(1,dat[cell,-1])) %*% models[[cell_cluster]]$coefficients)^2
+    S_ERR <- (dat[cell,ind_targetgenes] - as.vector(c(1,dat[cell,ind_reggenes])) %*% models[[cell_cluster]]$coefficients)^2
     r2_alt[cell,cell_cluster] <- 1-(S_ERR/SS_tot[cell])
   }
 }
