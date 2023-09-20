@@ -88,6 +88,7 @@ This will correspond to them being built from different regulatory models. So, f
 
 ```{r models}
 n_cell_clusters    <- 2
+
 # Sample intercepts
 intercepts <- rnorm(n_cell_clusters, mean = 10, sd = 5)
 # Sample slopes
@@ -220,18 +221,16 @@ Since there is only one regulator gene, we will skip the L1 penalty for adding c
 
   # Calculate the residual target gene variance for each gene and cluster
   # (so just one gene).
-  TARGET_GENE_RESIDUAL_VARIANCE <-  matrix(0, nrow = n_target_genes, ncol = n_cell_clusters)
-  std_of_residuals_of_target_genes <-  matrix(0, nrow = n_target_genes, ncol = n_cell_clusters)
+  TARGET_GENE_RESIDUAL_STD <-  matrix(0, nrow = n_target_genes, ncol = n_cell_clusters)
   # dat is dat <- cbind(target_expression, regulator_expression), e.g. a 2x100, with e.g. the first 50 rows being true cell cluster 1
   # 100x2 * 2x1 
   for(cell_cluster in 1:n_cell_clusters){
+    #
     intercept_and_regulatorgenes <- as.matrix(cbind(rep(1,nrow(dat)),dat[,ind_reggenes]))  # 100x2
-    TARGET_GENE_RESIDUAL_VARIANCE[cell_cluster] <- mean((intercept_and_regulatorgenes %*% models[[cell_cluster]]$coefficients)^2)
-    
     current_rows <- which(current_cell_cluster_allocation == cell_cluster)
+    
     std_of_residuals_of_target_genes_temp <- dat[current_rows,ind_targetgenes] - (intercept_and_regulatorgenes[current_rows,] %*% models[[cell_cluster]]$coefficients)
-    std_of_residuals_of_target_genes[cell_cluster]  <- var(std_of_residuals_of_target_genes_temp)
-    # std_of_residuals_of_target_genes[cell_cluster] <- mean((std_of_residuals_of_target_genes_temp-mean(std_of_residuals_of_target_genes_temp))^2)
+    TARGET_GENE_RESIDUAL_STD[cell_cluster]  <- sqrt(var(std_of_residuals_of_target_genes_temp))
   }
   
   # Now to actually calculate predicted or 'predicted' r2
@@ -244,7 +243,7 @@ Since there is only one regulator gene, we will skip the L1 penalty for adding c
       }
       SQUARED_ERROR <- (dat[cell,ind_targetgenes] - as.vector(c(1,dat[cell,ind_reggenes])) %*% models[[cell_cluster]]$coefficients)^2
       
-      loglike[cell,cell_cluster] <- SQUARED_ERROR / std_of_residuals_of_target_genes[cell_cluster]
+      loglike[cell,cell_cluster] <- SQUARED_ERROR / TARGET_GENE_RESIDUAL_STD[cell_cluster]
     }
   }
 
@@ -291,68 +290,6 @@ cell_cluster_history_plotting <-cbind('Cell ID' = cell_cluster_history[,1],
 plot_cluster_history(cell_cluster_history = cell_cluster_history_plotting)
 
 ```
-So in this super simple version the cells find their way back. But in more complicated version (ie the neftel 2019) things go haywire.
-
-Addendum: Similar plots with our current understanding of Felix's method:
+So in this super simple version the cells find their way back. 
 
 
-  ```{r  fig.show="hold", out.width="50%"}
-
-#Felix version would not do as we did above, but would instead , as i understand, do
-target_gene_means <- vector('numeric', length = nrow(dat) )
-SS_tot <- vector('numeric', length = nrow(dat))
-
-r2_alt <- matrix(0, nrow = nrow(dat), ncol = n_cell_clusters)
-for(cell in 1:nrow(dat)){
-  #note that this instead calculated the mean target gene expression for the cell
-  #and return this as a scalar
-  target_gene_means[cell] <- mean(dat[cell, 1:n_target_genes])
-
-  # Here i am not sure what we should do.
-  #normal r2 would compare the target gene expression vector
-  #predicted by the model to an average
-  SS_tot[cell]  <- sum((dat[,ind_targetgenes] - target_gene_means[cell])^2)
-
-}
-
-for(cell in 1:nrow(dat)){
-  for(cell_cluster in 1:n_cell_clusters){
-    # Bug fix hack: remove NA coefficients
-    if(any(is.na(models[[cell_cluster]]$coefficients))){
-      NA_coeffs <-  unname(which(is.na(models[[cell_cluster]]$coefficients)))
-      S_ERR <- (dat[cell,ind_targetgenes] - as.vector(c(1,dat[cell,c(ind_reggenes, -NA_coeffs)])) %*% models[[cell_cluster]]$coefficients[-NA_coeffs])^2
-    }
-    S_ERR <- (dat[cell,ind_targetgenes] - as.vector(c(1,dat[cell,ind_reggenes])) %*% models[[cell_cluster]]$coefficients)^2
-    r2_alt[cell,cell_cluster] <- 1-(S_ERR/SS_tot[cell])
-  }
-}
-
-
-r2plot(iteration = i_main,
-       r2 = r2_alt,
-       prev_cell_clust = true_cell_clust)
-
-ggplot(data = as.tibble(cbind(r2_alt, true_cell_clust)),
-       aes(x = V1, y = V2, color = as.factor(true_cell_clust))
-) +
-  geom_point() +
-  geom_abline(intercept = 0, slope = 1)+
-  labs(x = "r2 for fitting into cluster 1", y = "r2 for fitting into cluster 2")
-
-# Update cluster allocations
-updated_cell_clust <-  sapply(1:nrow(r2_alt), function(row) which.min(r2_alt[row,]))
-
-
-# Update data in cell_cluster_history
-cell_cluster_history[, i_main + initial_column_padding] <- updated_cell_clust
-
-RI(true_cell_clust,updated_cell_clust)
-
-cell_cluster_history_plotting <-cbind('Cell ID' = cell_cluster_history[,1],
-                                      true_cell_clust,
-                                      cell_cluster_history[,c(2,3)])
-
-plot_cluster_history(cell_cluster_history = cell_cluster_history_plotting)
-
-```
-So in this situation the two methods do the same thing.
