@@ -11,17 +11,6 @@ sapply(list.files(paste0(execution_path,"/../functions/"),recursive = T),
 setwd(execution_path)
 set.seed(1234)
 
-# Set variables ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-#
-# n_target_genes = 100
-# n_cell_clusters = 2
-# n_target_gene_clusters = c(3,4)  # Number of target gene clusters in each cell cluster
-# regulator_expression_offset =  c(0,0)
-# coefficient_means = list(c(1,1,1), c(1,1,1,1))  # For generating dummy data, coefficient means in each cell clustertrue_cluster_allocation = rep(1:n_cell_clusters, times=n_cells)
-# total_n_cells = sum(n_cells)
-
-# Generate dummy data for each cell cluster that we want ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
 #load sampled data
 neftel_path <- paste0(getCurrentFileLocation(), '/../../datasets_sctargettranslator/Neftel2019')
 Neftel_g1 <- readRDS(file = paste0(neftel_path, '/r_files/', "neftel_seurat_group1"))
@@ -174,8 +163,8 @@ colnames(cell_cluster_history) <- c("Cell ID", 'Initial clustering', paste0("Ite
 cell_cluster_history[, 'Cell ID'] <-1:length(initial_clustering)  # Set cell names
 cell_cluster_history[, 'Initial clustering'] <- initial_clustering
 
-#preallocate all r2 matrices for later analysis if feasible
-r2_all <- vector("list", length = max_iter)
+#preallocate all like matrices for later analysis if feasible
+likelyhood_all <- vector("list", length = max_iter)
 #set flag for breaking out of the loop.
 stop_iterating_flag = F
 
@@ -186,31 +175,42 @@ current_cell_cluster_allocation <- initial_clustering
 for(i_main in 1:max_iter){
   # fit model to each cell cluster
   models <- vector("list", length = n_cell_clusters)
+
+  #corresponds to running screg
   for(cell_cluster in 1:n_cell_clusters){
     current_rows <- which(current_cell_cluster_allocation == cell_cluster)
     models[[cell_cluster]] <- lm(dat[current_rows,c(1,2)] ~ dat[current_rows,c(3,4)])
   }
   # plot(models[[1]])
 
-  #for all cells, calculate the predicted r2 for all cell clusters.
-  r2 <- matrix(0, nrow = nrow(dat), ncol = n_cell_clusters)
+  #for all cells, calculate the predicted  likelythingy for all cell clusters.
+  like <- matrix(0, nrow = nrow(dat), ncol = n_cell_clusters)
 
-  #first calculate the mean target gene expression in these clusters
+  # Calculate the residual target gene variance for each gene and cluster
+  # (so just one gene).
+  INV_TARGET_GENE_RESIDUAL_STD <-  matrix(0, nrow = n_target_genes, ncol = n_cell_clusters)
 
-  target_gene_means <- matrix(0, nrow = n_cell_clusters, ncol = 2)
-  SS_tot <- matrix(0, nrow =nrow(dat), ncol = n_cell_clusters)
+  ind_targetgenes <- c(1,2)
+  ind_reggenes    <- c(3,4)
+
+  lambda <- 0.1
+
+  PENALTY <- matrix(0, nrow = 1, ncol = n_cell_clusters)
 
   for(cell_cluster in 1:n_cell_clusters){
-    current_rows <- which(current_cell_cluster_allocation == cell_cluster)
-    target_gene_means[cell_cluster,] <- sapply(1:2, function(i) mean(dat[current_rows,i]))
 
-    #calculate norm of diff from the cluster mean for each cell
-    SS_tot[,cell_cluster]  <- rowSums((dat[,c(1,2)] - target_gene_means[cell_cluster,])^2)
+    intercept_and_regulatorgenes <- as.matrix(cbind(rep(1,nrow(dat)),dat[,ind_reggenes]))  #
+    current_rows <- which(current_cell_cluster_allocation == cell_cluster)
+
+    std_of_residuals_of_target_genes_temp <- dat[current_rows,ind_targetgenes] -
+                                               (intercept_and_regulatorgenes[current_rows,] %*%  models[[cell_cluster]]$coefficients)
+    INV_TARGET_GENE_RESIDUAL_STD[,cell_cluster]  <- 1/diag(sqrt(var(std_of_residuals_of_target_genes_temp)))
+
+    PENALTY[cell_cluster] <- lambda * sum(abs(models[[cell_cluster]]$coefficients)) # *  INV_TARGET_GENE_RESIDUAL_STD[,cell_cluster] )
+
   }
 
-  #now to actually calculate predictive r2
-  #this is done by calculating the norm of the difference from the model/predicted vector
-  # divided by the norm of diff from the cluster mean
+
 
   for(cell in 1:nrow(dat)){
     for(cell_cluster in 1:n_cell_clusters){
@@ -220,17 +220,19 @@ for(i_main in 1:max_iter){
       #   S_ERR <- (dat[cell,1] - as.vector(c(1,dat[cell,c(-1, -NA_coeffs)])) %*% models[[cell_cluster]]$coefficients[-NA_coeffs])^2
       # }
 
-      S_ERR <- sum( (dat[cell,c(1,2)] - as.vector(c(1,dat[cell,c(-1,-2)])) %*% models[[cell_cluster]]$coefficients)^2)
+      SQUARED_ERROR <- (dat[cell,ind_targetgenes] - as.vector(c(1,dat[cell,ind_reggenes])) %*% models[[cell_cluster]]$coefficients)^2
 
-      r2[cell,cell_cluster] <- 1-(S_ERR / (SS_tot[cell,cell_cluster]))
+
+      like[cell,cell_cluster] <- SQUARED_ERROR %*% INV_TARGET_GENE_RESIDUAL_STD[,cell_cluster] + PENALTY[cell_cluster]
+
     }
   }
 
-  r2_all[[i_main]] <- r2
+  likelyhood_all[[i_main]] <- like
 
 
   #update cluster allocations
-  updated_cell_clust <-  sapply(1:nrow(r2), function(row) which.min(r2[row,]))
+  updated_cell_clust <-  sapply(1:nrow(like), function(row) which.min(like[row,]))
 
   # If there is only 1 cell left in a cell cluster it doesn't work
   # Move that cell to the biggest cell cluster.
