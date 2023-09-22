@@ -3,19 +3,27 @@ library(scregclust)
 library(plyr)
 library(aricode)  # To calculate rand index
 library(Seurat)
+library(Matrix)
 
 execution_path <- dirname(rstudioapi::getActiveDocumentContext()$path)
-sapply(list.files(paste0(execution_path,"/../functions/"),recursive = T),
-       function(nm) source(paste0(execution_path,"/../functions/", nm)))
+master_folder <- dirname(execution_path)
+function_folder <- file.path(master_folder, "functions")
+setwd(master_folder)
+all_function_files <- list.files(function_folder, recursive=T, full.names=T)
+for(current_file in all_function_files){
+    print(paste("Loading", current_file))
+    source(current_file)
+  }
 
 setwd(execution_path)
 set.seed(1234)
 
 #load sampled data
-neftel_path <- paste0(getCurrentFileLocation(), '/../../datasets_sctargettranslator/Neftel2019')
-Neftel_g1 <- readRDS(file = paste0(neftel_path, '/r_files/', "neftel_seurat_group1"))
+neftel_path <- file.path(dirname(master_folder), "datasets_sctargettranslator", "Neftel2019", "r_files", "neftel_mn_group1")
+print(paste("Loading Neftel data from: ", neftel_path))
+Neftel_g1 <- readRDS(file = neftel_path)
 
-Neftel_g1<-SetIdent(Neftel_g1, value='malignant')
+Neftel_g1 <- SetIdent(Neftel_g1, value='malignant')
 
 # rm(Neftel_g1)
 

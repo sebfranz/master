@@ -1,40 +1,38 @@
+library(Matrix)
+# This script requires that you have downloaded the neftel2019 dataset and
+# added it to ~\repos\datasets_sctargettranslator\Neftel2019
+# Download Group1 from https://uppsala.box.com/s/aqf3fyeb43i5jy8v4s527u0l262virue
 
 execution_path <- dirname(rstudioapi::getSourceEditorContext()$path)
-
-#This script requires that you have downloaded the neftel2019 dataset and
-# added it to ~\repos\datasets_sctargettranslator\Neftel2019
-
-if( !'datasets_sctargettranslator' %in% list.files(paste0(execution_path, '/../../'))){
-  #create folder and put data there
-  # dir.create((paste0(execution_path, '/../../datasets_sctargettranslator')) )
-
-  stop(paste0('please check that you have a folder called "datasets_sctargettranslator" with subfolder "Neftel2019" in ', execution_path))
-
+subfolder_to_master <- dirname(dirname(execution_path))
+datasets_sctargettranslator <- file.path(subfolder_to_master, "datasets_sctargettranslator")
+Neftel2019 <- file.path(datasets_sctargettranslator, "Neftel2019")
+r_files <- file.path(Neftel2019, "r_files")
+Group1 <- file.path(r_files, "Group1")
+neftel_mn_group1 <- file.path(r_files, "neftel_mn_group1")
+if(!file.exists(datasets_sctargettranslator)){
+  # Create folder and put data there
+  dir.create(datasets_sctargettranslator)
+}
+if(!file.exists(Neftel2019)){
+  # Create folder and put data there
+  dir.create(Neftel2019)
+}
+if(!file.exists(r_files)){
+  # Create folder and put data there
+  dir.create(r_files)
+  stop(paste("Please download Group1 from https://uppsala.box.com/s/aqf3fyeb43i5jy8v4s527u0l262virue and put them in", r_files))
 }
 
-setwd(paste0(execution_path, '/../../datasets_sctargettranslator'))
-# todo: download data automatically from the box
-# download.file('https://uppsala.box.com/s/aqf3fyeb43i5jy8v4s527u0l262virue',
-#               'C:/Users/Filip/repos/master/sc_data/test' )
-
-#make things prettier
-
-## Neftel 10X ##
-path <- paste0(execution_path, '/../../datasets_sctargettranslator/Neftel2019')
-setwd(path)
-
-if( !'r_files' %in% dir(path)){
-  #create folder and put data there
-  stop(paste0('please check that you have a folder called r_files in ', path))
-}
-
-library(Matrix)
-if(!'neftel_mn_group1' %in% list.files(paste0(path,'/r_files/'))){
-  mn_g1<-readMM(file='./Group1/Exp_data_UMIcounts_10X.mtx')
+mtx_file <- file.path(Group1, 'Exp_data_UMIcounts_10X.mtx')
+cell_file <- file.path(Group1, 'Cells_10X.txt')
+gene_file <- file.path(Group1, 'Genes_10X.txt')
+if(!file.exists(neftel_mn_group1)){
+  mn_g1<-readMM(file=mtx_file)
   mn_g1<-as.matrix(mn_g1)
 
-  cells<-read.table(file='./Group1/Cells_10X.txt',sep=' ',header=TRUE,stringsAsFactors = FALSE)
-  genes<-read.table(file='./Group1/Genes_10X.txt',sep='\t', header=FALSE,stringsAsFactors = FALSE)
+  cells<-read.table(file=cell_file, sep=' ', header=TRUE, stringsAsFactors = FALSE)
+  genes<-read.table(file=gene_file, sep='\t', header=FALSE, stringsAsFactors = FALSE)
   genes<-genes[,1]
 
   rownames(cells)<-cells[,1]
@@ -42,13 +40,13 @@ if(!'neftel_mn_group1' %in% list.files(paste0(path,'/r_files/'))){
   rownames(mn_g1)<-genes
   colnames(mn_g1)<-cells$cell_name
 
-  saveRDS(mn_g1, file = paste0(path, '/r_files/', "neftel_mn_group1"))
+  saveRDS(mn_g1, file = file.path(neftel_mn_group1))
 
 }else{
-  mn_g1 <- readRDS(file = paste0(path, '/r_files/', "neftel_mn_group1"))
+  mn_g1 <- readRDS(file = neftel_mn_group1)
 
-  cells<-read.table(file='./Group1/Cells_10X.txt',sep=' ',header=TRUE,stringsAsFactors = FALSE)
-  genes<-read.table(file='./Group1/Genes_10X.txt',sep='\t', header=FALSE,stringsAsFactors = FALSE)
+  cells<-read.table(file=cell_file, sep=' ', header=TRUE, stringsAsFactors = FALSE)
+  genes<-read.table(file=gene_file, sep='\t', header=FALSE, stringsAsFactors = FALSE)
   genes<-genes[,1]
 
   rownames(cells)<-cells[,1]
