@@ -19,7 +19,7 @@ setwd(execution_path)
 set.seed(1234)
 
 #load sampled data
-neftel_path <- file.path(dirname(master_folder), "datasets_sctargettranslator", "Neftel2019", "r_files", "neftel_mn_group1")
+neftel_path <- file.path(dirname(master_folder), "datasets_sctargettranslator", "Neftel2019", "r_files", "neftel_seurat_group1.rds")
 print(paste("Loading Neftel data from: ", neftel_path))
 Neftel_g1 <- readRDS(file = neftel_path)
 
