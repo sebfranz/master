@@ -150,6 +150,8 @@ colnames(cell_cluster_history) <- c("True allocation", "Disturbed allocation")
 #gather data and transpose to put
 # dat <- t(z_g1_ordered[c(max_var_target_gene,which(is_predictor==1)), cell_sample])
 dat <- t(z_g1_ordered[c( high_corr_targets, high_variance_regulators), cell_sample])
+ind_targetgenes <- c(1,2)
+ind_reggenes    <- c(3,4)
 dim_(dat)
 
 
@@ -187,9 +189,9 @@ for(i_main in 1:max_iter){
   #corresponds to running screg
   for(cell_cluster in 1:n_cell_clusters){
     current_rows <- which(current_cell_cluster_allocation == cell_cluster)
-    models[[cell_cluster]] <- lm(dat[current_rows,c(1,2)] ~ dat[current_rows,c(3,4)])
+    models[[cell_cluster]] <- lm(dat[current_rows, ind_targetgenes] ~ dat[current_rows, ind_reggenes])
   }
-  # plot(models[[1]])
+  plot_lm_planes(dat, current_cell_cluster_allocation, ind_reggenes, ind_targetgenes, n_cell_clusters, title=paste("Iteration", i_main))
 
   #for all cells, calculate the predicted  likelythingy for all cell clusters.
   like <- matrix(0, nrow = nrow(dat), ncol = n_cell_clusters)
@@ -197,9 +199,6 @@ for(i_main in 1:max_iter){
   # Calculate the residual target gene variance for each gene and cluster
   # (so just one gene).
   INV_TARGET_GENE_RESIDUAL_STD <-  matrix(0, nrow = n_target_genes, ncol = n_cell_clusters)
-
-  ind_targetgenes <- c(1,2)
-  ind_reggenes    <- c(3,4)
 
   lambda <- 0.1
 
@@ -217,8 +216,6 @@ for(i_main in 1:max_iter){
     PENALTY[cell_cluster] <- lambda * sum(abs(models[[cell_cluster]]$coefficients)) # *  INV_TARGET_GENE_RESIDUAL_STD[,cell_cluster] )
 
   }
-
-
 
   for(cell in 1:nrow(dat)){
     for(cell_cluster in 1:n_cell_clusters){
@@ -289,4 +286,3 @@ for(i_main in 1:max_iter){
 png("simplified biclust_simplified neftel.png")
 plot_cluster_history(cell_cluster_history = cbind( true_cell_clust_sample, cell_cluster_history))
 dev.off()
-
