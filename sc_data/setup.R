@@ -4,6 +4,7 @@ library(Seurat)
 # added it to ~\repos\datasets_sctargettranslator\Neftel2019
 # Download Group1 from https://uppsala.box.com/s/aqf3fyeb43i5jy8v4s527u0l262virue
 
+# All the folders and filenames
 execution_path <- dirname(rstudioapi::getSourceEditorContext()$path)
 subfolder_to_master <- dirname(dirname(execution_path))
 datasets_sctargettranslator <- file.path(subfolder_to_master, "datasets_sctargettranslator")
@@ -16,16 +17,14 @@ cell_file <- file.path(Group1, 'Cells_10X.txt')
 gene_file <- file.path(Group1, 'Genes_10X.txt')
 neftel_seurat_group1 <- file.path(r_files, "neftel_seurat_group1.rds")
 
+# Create folder tree and check if user downloaded the Group 1 Neftel data
 if(!file.exists(datasets_sctargettranslator)){
-  # Create folder and put data there
   dir.create(datasets_sctargettranslator)
 }
 if(!file.exists(Neftel2019)){
-  # Create folder and put data there
   dir.create(Neftel2019)
 }
 if(!file.exists(r_files)){
-  # Create folder and put data there
   dir.create(r_files)
   stop(paste("Please download Group1 from https://uppsala.box.com/s/aqf3fyeb43i5jy8v4s527u0l262virue and put them in", r_files))
 }
