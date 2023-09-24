@@ -63,6 +63,7 @@ r2plot <- function(iteration, r2, prev_cell_clust, n_cell_clusters = 2){
 }
 
 set.seed(1234)
+
 ```
 
 ## Simplified biclust demo

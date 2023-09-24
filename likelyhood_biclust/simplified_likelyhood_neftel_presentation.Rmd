@@ -1,10 +1,23 @@
-rm(list = ls())
+---
+title: "simplified_likelyhood_neftel_presentation"
+output: html_document
+date: "2023-09-24"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(cache = FALSE)
+library(tidyverse)
+library(aricode)  # To calculate rand index
+library(ggplot2)
+library(ggalluvial)
+library(reshape2)
 library(scregclust)
 library(plyr)
-library(aricode)  # To calculate rand index
 library(Seurat)
 library(Matrix)
 
+#load our standard functions and set up important path variables
 execution_path <- dirname(rstudioapi::getActiveDocumentContext()$path)
 output_path <- execution_path
 master_folder <- dirname(execution_path)
@@ -18,14 +31,21 @@ for(current_file in all_function_files){
 # setwd(execution_path)
 set.seed(1234)
 
+```
+
+## Still simplified but on neftel data
+
+As a next step we want to use some more complicated data to cluster cells in, but we leave target gene clustering for later.
+
+
+
+```{r}
 #load sampled data
 neftel_path <- file.path(dirname(master_folder), "datasets_sctargettranslator", "Neftel2019", "r_files", "neftel_seurat_group1.rds")
 print(paste("Loading Neftel data from: ", neftel_path))
 Neftel_g1 <- readRDS(file = neftel_path)
 
 Neftel_g1 <- SetIdent(Neftel_g1, value='malignant')
-
-# rm(Neftel_g1)
 
 #get malignant expression on proper form
 z_g1<-GetAssayData(Neftel_g1, slot='scale.data')
@@ -47,44 +67,18 @@ is_malignant <- is_malignant[order(is_malignant)]
 rm(z_g1)
 rm(Neftel_g1)
 
-dim_(z_g1_ordered)
-
-
-
-############### code to run scregclust if we want to ##################
-
-# for (i in 1:length(unique(metaData))){
-#   ix<-which(metaData==unique(metaData)[i])
-#   sample_assignment[ix]<-i
-# }
-#
-# if(!'neftel_scregfit_group1' %in% list.files(paste0(neftel_path,'/r_files/'))){
-#   fit_g1 <- scregclust(
-#     z_g1_ordered,
-#     genesymbols = scregclust_format(z_g1_ordered)[[1]],
-#     is_predictor,
-#     n_cl = 10L,
-#     penalization = 0.05,
-#     total_proportion = 0.5,
-#     n_cycles = 50L,
-#     noise_threshold = 0.05,
-#     min_cluster_size = 50,
-#     sample_assignment = sample_assignment
-#   )
-#
-#   saveRDS(fit_g1, file = paste0(path, '/r_files/', "neftel_scregfit_group1"))
-# } else {
-#   fit_g1 <- readRDS(file = paste0(path, '/r_files/', "neftel_scregfit_group1"))
-# }
-#
-
-
-
-############################################
 
 # True cell clustering here is the malignancy for example
 true_cell_clust <- is_malignant + 1
 n_cell_clusters<- length(unique(true_cell_clust))
+
+```
+
+Now we simplify the dataset a bit to make it easier to work with.
+We subset the amount of cells, select regulators, and find target genes withsome correlation to these regulators. Hopefully we can build some linear models from these pairs.
+
+
+```{r}
 
 cell_sample <- c(sample(which(is_malignant==0), 1500 ),sample(which(is_malignant==1), 1500 ) )
 # cell_sample <- 1:length(is_malignant)
@@ -117,7 +111,13 @@ target_vars <- sapply(which(is_predictor==0), function(i) max(abs(cor(t(z_g1_ord
 high_corr_targets <- which(target_vars >= sort( target_vars, decreasing = T)[2])
 
 rm(target_vars)
-#implement a simplified version of biclust here. We want to sidestep scregclust but keep the rest of the concept intact
+
+```
+
+
+Next we permute our true cluster labels, hopefully our method will find its way back to these
+
+```{r}
 
 #first variant simplified_biclust()
 max_iter <- 50
@@ -142,13 +142,13 @@ for(i_cluster in 1:n_cell_clusters){
 cell_cluster_history <- cbind(true_cell_clust_sample, disturbed_initial_cell_clust)
 colnames(cell_cluster_history) <- c("True allocation", "Disturbed allocation")
 
-# #find which target gene has highest difference in mean expression between noncancer and cancer
-# means1  <- sapply(1:sum((is_predictor==0)), function(row) mean(z_g1_ordered[which(is_predictor==0)[row], cell_sample[true_cell_clust_sample ==1]]) )
-# means2  <- sapply(1:sum((is_predictor==0)), function(row) mean(z_g1_ordered[which(is_predictor==0)[row], cell_sample[true_cell_clust_sample ==2]]) )
-# max_var_target_gene <- which(is_predictor==0)[which.max(means1-means2)]
 
-#gather data and transpose to put
-# dat <- t(z_g1_ordered[c(max_var_target_gene,which(is_predictor==1)), cell_sample])
+```
+
+
+next we actually set our data set, some important cariables, and structure how we will keep track of cluster allocations over iterations
+```{r}
+
 dat <- t(z_g1_ordered[c( high_corr_targets, high_variance_regulators), cell_sample])
 ind_targetgenes <- c(1,2)
 ind_reggenes    <- c(3,4)
@@ -173,6 +173,7 @@ colnames(cell_cluster_history) <- c("Cell ID", 'Initial clustering', paste0("Ite
 cell_cluster_history[, 'Cell ID'] <-1:length(initial_clustering)  # Set cell names
 cell_cluster_history[, 'Initial clustering'] <- initial_clustering
 
+
 #preallocate all like matrices for later analysis if feasible
 likelyhood_all <- vector("list", length = max_iter)
 #set flag for breaking out of the loop.
@@ -180,20 +181,32 @@ stop_iterating_flag = F
 
 current_cell_cluster_allocation <- initial_clustering
 
-# i_main  <- 1
 
-for(i_main in 1:max_iter){
-  # fit model to each cell cluster
+```
 
-  models <- vector("list", length = n_cell_clusters)
+Now, let's walk through one iteration.
 
-  #corresponds to running screg
-  for(cell_cluster in 1:n_cell_clusters){
-    current_rows <- which(current_cell_cluster_allocation == cell_cluster)
-    models[[cell_cluster]] <- lm(dat[current_rows, ind_targetgenes] ~ dat[current_rows, ind_reggenes])
-  }
-  plot_lm_planes(dat, current_cell_cluster_allocation, ind_reggenes, ind_targetgenes, n_cell_clusters, title=paste("Iteration", i_main))
+We start with running some linear models, this would conceptually correspond to running scregclust,  which fits a much more sophisticadet but still fundamentally linear set of models.
 
+```{r}
+i_main <- 1 #future iteration variable, this is the first iteration
+
+models <- vector("list", length = n_cell_clusters) #allocate list of models
+
+#corresponds to running screg
+for(cell_cluster in 1:n_cell_clusters){
+  current_rows <- which(current_cell_cluster_allocation == cell_cluster)
+  models[[cell_cluster]] <- lm(dat[current_rows, ind_targetgenes] ~ dat[current_rows, ind_reggenes])
+}
+plot_lm_planes(dat, current_cell_cluster_allocation, ind_reggenes, ind_targetgenes, n_cell_clusters, title=paste("Iteration", i_main))
+
+
+```
+
+Now that we have some models fit these initial cell clusters, we calculate the likelyhood  for each cell belonging to a cluster, along with a penalty.
+
+```{r}
+  
   #for all cells, calculate the predicted  likelythingy for all cell clusters.
   like <- matrix(0, nrow = nrow(dat), ncol = n_cell_clusters)
 
@@ -222,7 +235,9 @@ for(i_main in 1:max_iter){
     #get the std of each target genese variance of residusals, store their reciprocals
     INV_TARGET_GENE_RESIDUAL_STD[,cell_cluster]  <- 1/diag(sqrt(var(std_of_residuals_of_target_genes_temp)))
 
-    #Calculate the penalty for each cluster
+    #Calculate the penalty for each cluster. Smaller is better.
+    #In the real thing this will punish models from scregclust that use bigger and more 
+    #coefficients
     PENALTY[cell_cluster] <- lambda * sum(abs(models[[cell_cluster]]$coefficients)) # *  INV_TARGET_GENE_RESIDUAL_STD[,cell_cluster] )
   }
 
@@ -237,12 +252,131 @@ for(i_main in 1:max_iter){
       #calculate numerator for likelyhood
       SQUARED_ERROR <- (dat[cell,ind_targetgenes] - as.vector(c(1,dat[cell,ind_reggenes])) %*% models[[cell_cluster]]$coefficients)^2
 
-      #calculate likelyhood and add penalty
+      #calculate likelyhood and add penalty. smaller is better
       like[cell,cell_cluster] <- SQUARED_ERROR %*% INV_TARGET_GENE_RESIDUAL_STD[,cell_cluster] +
         PENALTY[cell_cluster]
     }
   }
+  
 
+  likelyhood_all[[i_main]] <- like
+
+```
+
+Now that we have this gathered, we can update out cell cluster assignment. 
+
+
+```{r}
+ #update cluster allocations
+  updated_cell_clust <-  sapply(1:nrow(like), function(row) which.min(like[row,]))
+
+  # If there is only 1 cell left in a cell cluster it doesn't work
+  # Move that cell to the biggest cell cluster.
+  updated_cell_clust_table = data.frame(table(updated_cell_clust))
+
+  for(i_cell_cluster in 1:n_cell_clusters){
+    if (length(which(updated_cell_clust==i_cell_cluster)) == 1){
+      updated_cell_clust[which(updated_cell_clust==i_cell_cluster)] = which.max(updated_cell_clust_table$Freq)
+    }
+  }
+
+  # Update data in cell_cluster_history
+  cell_cluster_history[, i_main + initial_column_padding] <- updated_cell_clust
+  
+```
+
+When we have updated cluster assignment, then we check for convergence and possibly stop.
+
+```{r}
+  # Compare clusters with with previous iterations so we can exit if we seen this allocation before
+  for(prev_clustering in ((i_main-1):0) ){
+    print(paste0('Comparing with iteration ', prev_clustering))
+    if(RI(updated_cell_clust,cell_cluster_history[,prev_clustering + initial_column_padding]) == 1){
+      print("Cell clustering from iteration same as some previous iteration. Exiting.")
+      print(paste0("RI of ",
+                   RI(updated_cell_clust, cell_cluster_history[,prev_clustering + initial_column_padding]),
+                   " when comparing iteration ", i_main," to iteration ", prev_clustering))
+      stop_iterating_flag = T
+      break
+    }
+  }
+
+
+  if(stop_iterating_flag == T){
+    # Clean up cluster history
+    cell_cluster_history <- cell_cluster_history[ , colSums(is.na(cell_cluster_history))==0, drop=FALSE]
+    # Stop iterations/exit function
+    break
+  }
+
+  current_cell_cluster_allocation <- updated_cell_clust 
+
+  # Handle case where cell cluster disappeared
+  unique_cell_cluster_ids <- sort(unique(updated_cell_clust))
+  if (length(unique_cell_cluster_ids)<n_cell_clusters){
+    n_cell_clusters = length(unique_cell_cluster_ids)
+    updated_cell_clust <- mapvalues(updated_cell_clust, from = unique_cell_cluster_ids, to = 1:n_cell_clusters)
+    n_target_gene_clusters <- n_target_gene_clusters[unique_cell_cluster_ids]
+  }
+
+```
+
+
+And if we don't stop, we keep iterating.
+
+
+```{r echo = F}
+
+for(i_main in 2:max_iter){
+  # fit model to each cell cluster
+  models <- vector("list", length = n_cell_clusters)
+
+  #corresponds to running screg
+  for(cell_cluster in 1:n_cell_clusters){
+    current_rows <- which(current_cell_cluster_allocation == cell_cluster)
+    models[[cell_cluster]] <- lm(dat[current_rows, ind_targetgenes] ~ dat[current_rows, ind_reggenes])
+  }
+  plot_lm_planes(dat, current_cell_cluster_allocation, ind_reggenes, ind_targetgenes, n_cell_clusters, title=paste("Iteration", i_main))
+
+  #for all cells, calculate the predicted  likelythingy for all cell clusters.
+  like <- matrix(0, nrow = nrow(dat), ncol = n_cell_clusters)
+
+  # Calculate the residual target gene variance for each gene and cluster
+  # (so just one gene).
+  INV_TARGET_GENE_RESIDUAL_STD <-  matrix(0, nrow = n_target_genes, ncol = n_cell_clusters)
+
+  lambda <- 0.1
+
+  PENALTY <- matrix(0, nrow = 1, ncol = n_cell_clusters)
+
+  for(cell_cluster in 1:n_cell_clusters){
+
+    intercept_and_regulatorgenes <- as.matrix(cbind(rep(1,nrow(dat)),dat[,ind_reggenes]))  #
+    current_rows <- which(current_cell_cluster_allocation == cell_cluster)
+
+    std_of_residuals_of_target_genes_temp <- dat[current_rows,ind_targetgenes] -
+                                               (intercept_and_regulatorgenes[current_rows,] %*%  models[[cell_cluster]]$coefficients)
+    INV_TARGET_GENE_RESIDUAL_STD[,cell_cluster]  <- 1/diag(sqrt(var(std_of_residuals_of_target_genes_temp)))
+
+    PENALTY[cell_cluster] <- lambda * sum(abs(models[[cell_cluster]]$coefficients)) # *  INV_TARGET_GENE_RESIDUAL_STD[,cell_cluster] )
+
+  }
+
+  for(cell in 1:nrow(dat)){
+    for(cell_cluster in 1:n_cell_clusters){
+      # #bug fix hack: remove NA coefficients
+      # if(any(is.na(models[[cell_cluster]]$coefficients))){
+      #   NA_coeffs <-  unname(which(is.na(models[[cell_cluster]]$coefficients)))
+      #   S_ERR <- (dat[cell,1] - as.vector(c(1,dat[cell,c(-1, -NA_coeffs)])) %*% models[[cell_cluster]]$coefficients[-NA_coeffs])^2
+      # }
+
+      SQUARED_ERROR <- (dat[cell,ind_targetgenes] - as.vector(c(1,dat[cell,ind_reggenes])) %*% models[[cell_cluster]]$coefficients)^2
+
+
+      like[cell,cell_cluster] <- SQUARED_ERROR %*% INV_TARGET_GENE_RESIDUAL_STD[,cell_cluster] + PENALTY[cell_cluster]
+
+    }
+  }
 
   likelyhood_all[[i_main]] <- like
 
@@ -294,6 +428,17 @@ for(i_main in 1:max_iter){
   }
 }
 
-png(file.path(output_path,"simplified biclust_simplified neftel.png"))
+```
+
+and plot stuff
+
+```{r}
 plot_cluster_history(cell_cluster_history = cbind( true_cell_clust_sample, cell_cluster_history))
-dev.off()
+```
+
+
+
+
+
+
+
