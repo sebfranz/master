@@ -8,7 +8,7 @@ library(aricode)  # To calculate rand index
 # sapply(list.files(paste0(execution_path,"/../functions/"),recursive = T),
 #        function(nm) source(paste0(execution_path,"/../functions/", nm)))
 
-#todo: implement likelyhood stuff
+#todo: implement likelihood stuff
 
 library(ggplot2)
 library(ggalluvial)

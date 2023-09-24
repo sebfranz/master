@@ -1,17 +1,22 @@
 
 execution_path <- dirname(rstudioapi::getSourceEditorContext()$path)
-source(paste0(execution_path,"/dummy_data.R"))
+source(paste0(execution_path,"/functions/generate_dummy_data_for_scregclust.R"))
 
 
 Pt = 10      #number of target genes
 Pr = 5       #number of regulator genes
 n  = 10000   #number of cells
 K  = 3       #Number of target gene clusters
-# regulator_mean   = 1
-# coefficient_mean = c(1,10,100)
+regulator_mean   = 1
+coefficient_mean = c(1,10,100)
 
 #generate dummy data for each cell cluster that we want
-dummy_res <- generate_dummy_data(Pt, Pr, n, K, regulator_mean, coefficient_mean)
+dummy_res <- generate_dummy_data_for_scregclust(n_target_genes = Pt,  # Number of target genes
+                                                    n_regulator_genes = Pr,  # Number of regulator genes
+                                                    n_cells  = n,  # Number of cells
+                                                    n_target_gene_clusters  = K,  # Number of target gene clusters
+                                                    regulator_mean   = regulator_mean,  # Mean expression of regulator genes
+                                                    coefficient_mean = coefficient_mean)  # Mean coefficients in true model, length n_target_gene_clusters)
 
 #hack to get the list dummy_res into the global environment
 for(iter in 1:length(names(dummy_res))) {

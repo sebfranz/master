@@ -7,21 +7,33 @@ date: "2023-09-24"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(cache = FALSE)
+if (!require(tidyverse)) install.packages('tidyverse')
+if (!require(ggplot2)) install.packages('ggplot2')
+if (!require(ggalluvial)) install.packages('ggalluvial')
+if (!require(reshape2)) install.packages('reshape2')
+if (!require(scregclust)) install.packages('scregclust')
+if (!require(plyr)) install.packages('plyr')
+if (!require(aricode)) install.packages('aricode')
+if (!require(Seurat)) install.packages('Seurat')
+if (!require(Matrix)) install.packages('Matrix')
+if (!require(here)) install.packages('here')
 library(tidyverse)
-library(aricode)  # To calculate rand index
 library(ggplot2)
 library(ggalluvial)
 library(reshape2)
 library(scregclust)
 library(plyr)
-library(Seurat)
+library(aricode)  # To calculate rand index
+library(Seurat)  # To work with the Neftel data
 library(Matrix)
+library(here)  # To work with paths
+
+root_path <- here::here()
+execution_path <- here::here("simplified_biclust_likelihood")
+output_path <- execution_path
+function_folder <- here::here("functions")
 
 #load our standard functions and set up important path variables
-execution_path <- dirname(rstudioapi::getActiveDocumentContext()$path)
-output_path <- execution_path
-master_folder <- dirname(execution_path)
-function_folder <- file.path(master_folder, "functions")
 all_function_files <- list.files(function_folder, recursive=T, full.names=T)
 for(current_file in all_function_files){
     print(paste("Loading", current_file))
@@ -41,7 +53,7 @@ As a next step we want to use some more complicated data to cluster cells in, bu
 
 ```{r}
 #load sampled data
-neftel_path <- file.path(dirname(master_folder), "datasets_sctargettranslator", "Neftel2019", "r_files", "neftel_seurat_group1.rds")
+neftel_path <- file.path(dirname(root_path), "datasets_sctargettranslator", "Neftel2019", "r_files", "neftel_seurat_group1.rds")
 print(paste("Loading Neftel data from: ", neftel_path))
 Neftel_g1 <- readRDS(file = neftel_path)
 

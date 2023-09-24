@@ -1,14 +1,21 @@
 rm(list = ls())
+if (!require(scregclust)) install.packages('scregclust')
+if (!require(plyr)) install.packages('plyr')
+if (!require(aricode)) install.packages('aricode')
+if (!require(Seurat)) install.packages('Seurat')
+if (!require(Matrix)) install.packages('Matrix')
+if (!require(here)) install.packages('here')
 library(scregclust)
 library(plyr)
 library(aricode)  # To calculate rand index
-library(Seurat)
+library(Seurat)  # To work with the Neftel data
 library(Matrix)
+library(here)  # To work with paths
 
-execution_path <- dirname(rstudioapi::getActiveDocumentContext()$path)
+path_root <- here::here()
+execution_path <- here::here("simplified_biclust_likelihood")
 output_path <- execution_path
-master_folder <- dirname(execution_path)
-function_folder <- file.path(master_folder, "functions")
+function_folder <- here::here("functions")
 all_function_files <- list.files(function_folder, recursive=T, full.names=T)
 for(current_file in all_function_files){
     print(paste("Loading", current_file))
@@ -18,8 +25,8 @@ for(current_file in all_function_files){
 # setwd(execution_path)
 set.seed(1234)
 
-#load sampled data
-neftel_path <- file.path(dirname(master_folder), "datasets_sctargettranslator", "Neftel2019", "r_files", "neftel_seurat_group1.rds")
+# Load sampled data
+neftel_path <- file.path(dirname(path_root), "datasets_sctargettranslator", "Neftel2019", "r_files", "neftel_seurat_group1.rds")
 print(paste("Loading Neftel data from: ", neftel_path))
 Neftel_g1 <- readRDS(file = neftel_path)
 
@@ -174,7 +181,7 @@ cell_cluster_history[, 'Cell ID'] <-1:length(initial_clustering)  # Set cell nam
 cell_cluster_history[, 'Initial clustering'] <- initial_clustering
 
 #preallocate all like matrices for later analysis if feasible
-likelyhood_all <- vector("list", length = max_iter)
+likelihood_all <- vector("list", length = max_iter)
 #set flag for breaking out of the loop.
 stop_iterating_flag = F
 
@@ -204,7 +211,7 @@ for(i_main in 1:max_iter){
 
   PENALTY <- matrix(0, nrow = 1, ncol = n_cell_clusters)
 
-  #First we calculate the denominator used in the likelyhood ie the variance of the
+  #First we calculate the denominator used in the likelihood ie the variance of the
   #residuals per target gene, restricted to the cells in the respective cell clusters
 
   #since the penalty doesn't use information about each cell but rather each cluster,
@@ -218,7 +225,8 @@ for(i_main in 1:max_iter){
 
     #Calculate the residuals for the current model.
     std_of_residuals_of_target_genes_temp <- dat[current_rows,ind_targetgenes] -
-                                               (intercept_and_regulatorgenes[current_rows,] %*%  models[[cell_cluster]]$coefficients)
+                                               (intercept_and_regulatorgenes[current_rows,] %*%
+                                                  models[[cell_cluster]]$coefficients)
     #get the std of each target genese variance of residusals, store their reciprocals
     INV_TARGET_GENE_RESIDUAL_STD[,cell_cluster]  <- 1/diag(sqrt(var(std_of_residuals_of_target_genes_temp)))
 
@@ -234,17 +242,19 @@ for(i_main in 1:max_iter){
       #   S_ERR <- (dat[cell,1] - as.vector(c(1,dat[cell,c(-1, -NA_coeffs)])) %*% models[[cell_cluster]]$coefficients[-NA_coeffs])^2
       # }
 
-      #calculate numerator for likelyhood
-      SQUARED_ERROR <- (dat[cell,ind_targetgenes] - as.vector(c(1,dat[cell,ind_reggenes])) %*% models[[cell_cluster]]$coefficients)^2
+      #calculate numerator for likelihood
+      SQUARED_ERROR <- (dat[cell,ind_targetgenes] -
+                          as.vector(c(1,dat[cell,ind_reggenes])) %*%
+                          models[[cell_cluster]]$coefficients)^2
 
-      #calculate likelyhood and add penalty
+      #calculate likelihood and add penalty
       like[cell,cell_cluster] <- SQUARED_ERROR %*% INV_TARGET_GENE_RESIDUAL_STD[,cell_cluster] +
         PENALTY[cell_cluster]
     }
   }
 
 
-  likelyhood_all[[i_main]] <- like
+  likelihood_all[[i_main]] <- like
 
 
   #update cluster allocations

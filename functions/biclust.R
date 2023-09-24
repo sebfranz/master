@@ -137,6 +137,7 @@ calculate_R2_per_cluster <- function(n_target_gene_clusters,
 
       print("---- betas_for_cells_cluster_i")
       print(str(betas_for_cells_cluster_i))
+
       # for(i_target_gene_cluster in 1:n_target_gene_clusters[[i_target_cell_cluster]]){
       #   i_total_target_geneclusters <- i_total_target_geneclusters + 1
       #   target_gene_ids_in_cluster_i <- which(target_gene_cluster_index==i_target_gene_cluster)
@@ -144,16 +145,24 @@ calculate_R2_per_cluster <- function(n_target_gene_clusters,
       # If no target gene was assigned to this cluster we don't calculate anything.
       # This means rows of NA will represent target gene clusters that disappeared.
       if(!is.null(betas_for_cells_cluster_i)) {
+        print(colSums(betas_for_cells_cluster_i))
+        print(rowSums(betas_for_cells_cluster_i))
         target_gene_clusters_in_this_cell_cluster_i_yvals <- yvals[target_gene_cluster_index, , drop=FALSE]
-
-        SST <- (target_gene_clusters_in_this_cell_cluster_i_yvals - mean(target_gene_clusters_in_this_cell_cluster_i_yvals))^2
+        colmeaned_y <-  matrix(rep(colMeans(target_gene_clusters_in_this_cell_cluster_i_yvals), nrow(target_gene_clusters_in_this_cell_cluster_i_yvals)), nrow=nrow(target_gene_clusters_in_this_cell_cluster_i_yvals))
+        SST <- (target_gene_clusters_in_this_cell_cluster_i_yvals - colmeaned_y)^2
+        # SST <- (target_gene_clusters_in_this_cell_cluster_i_yvals - mean(target_gene_clusters_in_this_cell_cluster_i_yvals))^2
         SST <- as.matrix(SST, nrow=length(target_gene_ids_in_cluster_i), ncol=ncol(target_gene_clusters_in_this_cell_cluster_i_yvals))
         SST_sum_adjusted <- sum(SST)/(ncol(target_gene_clusters_in_this_cell_cluster_i_yvals) - nrow(xvals))
 
-        SSR <- (target_gene_clusters_in_this_cell_cluster_i_yvals- t(betas_for_cells_cluster_i) %*% xvals)^2
-        SSR <- as.matrix(SSR, nrow=length(target_gene_ids_in_cluster_i), ncol=ncol(target_gene_clusters_in_this_cell_cluster_i_yvals))
+        sigmas <- sqrt(unlist(out_list[[i_target_cell_cluster]]$results[[1]]$output[[1]]$sigmas)^2)
+        print("Sigmas")
+        print(sigmas)
+        sigmas <- matrix(rep(sigmas,ncol(target_gene_clusters_in_this_cell_cluster_i_yvals)), nrow=length(sigmas), ncol=ncol(target_gene_clusters_in_this_cell_cluster_i_yvals))
+        SSR <- (target_gene_clusters_in_this_cell_cluster_i_yvals - (t(betas_for_cells_cluster_i*0) %*% xvals))^2
+        SSR <- as.matrix(SSR, nrow=length(target_gene_ids_in_cluster_i), ncol=ncol(target_gene_clusters_in_this_cell_cluster_i_yvals))/sigmas
         SSR_sum_adjusted <- colSums(SSR)/(ncol(target_gene_clusters_in_this_cell_cluster_i_yvals) - 1)
 
+        # adjusted_R2[i_target_cell_cluster, prev_cell_clust == i_from_cell_cluster] <- -SSR_sum_adjusted # 1 - SSR_sum_adjusted/SST_sum_adjusted
         # R2[i_total_target_geneclusters, prev_cell_clust == i_from_cell_cluster] <- 1 - colSums(SSR)/sum(SST)
         adjusted_R2[i_target_cell_cluster, prev_cell_clust == i_from_cell_cluster] <- 1 - SSR_sum_adjusted/SST_sum_adjusted
         # MSE[i_total_target_geneclusters, prev_cell_clust == i_from_cell_cluster] <- colMeans(SSR)

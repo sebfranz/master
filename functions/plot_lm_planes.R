@@ -38,6 +38,7 @@ plot_lm_planes <- function(dat, current_cell_cluster_allocation, ind_reggenes, i
                      zlab = "Target gene",
                      main = title)
 
+
   color <- 0
   for(cell_cluster in 1:n_cell_clusters){
     for(current_target_gene in 1:length(ind_targetgenes)){
@@ -45,6 +46,10 @@ plot_lm_planes <- function(dat, current_cell_cluster_allocation, ind_reggenes, i
       p$plane3d(models[[cell_cluster]]$coefficients[,current_target_gene], col = colorSet[color])
     }
   }
+  legend(p$xyz.convert(-0.5, -0.5, -0.5),
+         col= c(colorSet[1],colorSet[2], colorSet[3], colorSet[4]),
+         bg="white", lty=c(1,1), lwd=2, yjust=0,
+         legend = c("C1T1", "C1T2", "C2T1", "C2T2"), cex = 1.1)
 
 
 
