@@ -1,0 +1,392 @@
+---
+title: "Simplified_biclust_with_likelyhood_assignmend_walkthrough"
+output: html_document
+date: "2023-oct-01"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(cache = FALSE)
+library(tidyverse)
+library(aricode)  # To calculate rand index
+library(ggplot2)
+library(ggalluvial)
+library(reshape2)
+
+#plot cluster evolution
+plot_cluster_history <- function(cell_cluster_history){
+
+  d <- cell_cluster_history
+  d <- d[ , colSums(is.na(d))==0]  # Remove NA data
+  d <- melt(d, id.vars="Cell ID")
+  colnames(d) <- c("cell", "iteration", "cluster")
+  d['cluster'] <- as.factor(d[, 'cluster'])
+
+  rand_ind <- RI(cell_cluster_history[,2],cell_cluster_history[,ncol(cell_cluster_history)])
+
+  # Plotting it
+  # Slow. But keeps track of individual cells
+  # ggplot(d, aes(x = iteration, stratum = cluster, alluvium = cell, fill = cluster, label = cluster)) +
+  #   scale_fill_brewer(type = "qual", palette = "Set2") +
+  #   geom_flow(stat = "alluvium", lode.guidance = "rightleft", color = "darkgray") +
+  #   geom_stratum() +
+  #   theme(legend.position = "bottom") +
+  #   ggtitle("Cluster allocation for each iteration")
+
+  # Doesn't keep track of individual cells
+  ggplot(d, aes(x = iteration, stratum = cluster, alluvium = cell, fill = cluster, label = cluster)) +
+    scale_fill_brewer(type = "qual", palette = "Set2") +
+    geom_flow() +
+    geom_stratum() +
+    ylab("Cells") +
+    xlab("Iteration") +
+    labs(fill="Cluster") +
+    theme(legend.position = "bottom") +
+    ggtitle(paste0("Log of cluster allocation\nRand index of true vs final: ",round(rand_ind,2)))
+
+}
+
+
+# Plot histograms of r2
+r2plot <- function(iteration, r2, prev_cell_clust, n_cell_clusters = 2){
+  if(T){
+    par(mfrow=c(length(unique(prev_cell_clust)),n_cell_clusters))
+    for(i_cells_from_cell_cluster in 1:length(unique(prev_cell_clust))){
+      for(i_fits_into_cell_cluster in 1:length(unique(prev_cell_clust))){
+        print(paste(i_cells_from_cell_cluster, i_fits_into_cell_cluster))
+        ind_for_cell_cluster = which(rep(1:n_cell_clusters, n_target_gene_clusters)==i_fits_into_cell_cluster)
+        hist(r2[ prev_cell_clust==i_cells_from_cell_cluster, ind_for_cell_cluster], breaks=100, main=paste("Cells from cell cluster", i_cells_from_cell_cluster, "\nfits into cell cluster", i_fits_into_cell_cluster, "with r2:"))
+      }
+    }
+    mtext(paste("Iteration", iteration), side = 3, line = -1, outer = TRUE)
+  }
+}
+
+set.seed(1234)
+```
+
+## Simplified biclust demo
+
+The idea of this script is to walk through one iteration of our simplified version of biclust and find out either why the concept is flawed or if we are missing something that should be obvious.
+
+The main idea is to consider biclust as a modular clustering algorithm that in general should be able to take in any kind of linear model-like method and use it for clustering. The core idea is that we have something that builds a linearisch model that we can use to derive r2 for cells in the cluster, and predicted r2 values for cells in other clusters (those that were not used for fitting that particular models), so we can use these r2/predicted r2 to reassign cells to clusters and re-fit models.
+
+For this ultra-simple example, we will try this concept using the simplest thinkable method: a linear model of one dependent and one independent variable.
+
+In this iteration we also want to implement the train/test-split thingy
+
+## Simulating some data
+First, we build some gene expression for some regulator genes.
+
+```{r regulators}
+num_cells <- 1000
+regulator_expression <- rnorm(num_cells, mean = 1, sd = 0.1)
+hist(regulator_expression)
+
+```
+
+Now using these regulator gene expressions we will build some target gene expressions. We want the target gene expressions to be clearly clustered for this example.
+This will correspond to them being built from different regulatory models. So, first we define how many clusters we want, and define our regulatory model for each cell cluster.
+
+```{r models}
+n_cell_clusters    <- 2
+
+# Sample intercepts
+intercepts <- rnorm(n_cell_clusters, mean = 10, sd = 5)
+# Sample slopes
+betas      <- rnorm(n_cell_clusters, mean = 1,  sd = 0.5)
+# Assign half of the cells to be in either cluster
+true_cell_clust <- c(rep(1,num_cells/2), rep(2,num_cells/2))
+
+```
+
+Next we use these parameters to generate target gene expression.
+
+```{r target expression ,fig.show="hold", out.width="50%"}
+
+# Build cell expression from linear model
+# | intercept, beta | x | r11, r12 |
+#                       | r21, r22 |
+#                       |    ...   |
+# For every cell cluster, 1x2 * 2x50
+cell_cluster_expression <- sapply(1:n_cell_clusters, function(cellCluster) c(intercepts[cellCluster], betas[cellCluster]) %*%
+                                    t(cbind(rep(1, num_cells/2), regulator_expression[which(true_cell_clust == cellCluster)]))
+)
+
+target_expression <- c(cell_cluster_expression[,1], cell_cluster_expression[,2])
+dat <- cbind(target_expression, regulator_expression)
+ind_targetgenes <- c(1)
+ind_reggenes <- c(2) 
+
+hist(target_expression, breaks = 100)
+plot(dat[,c(ind_reggenes,ind_targetgenes)])
+```
+### The data split
+Make a test split that splits the data set into train/test pairs. 
+Naively described we do this by taking one cell, pairing it with the closest unpaired cell.
+The standard approach would be to do a random split, but we want to be able to
+run screg on the train split, and have the test split "follow along" given these pairs.
+
+We can implement a somewhat greedy algorithm to get a decent split:
+- take a cell
+- calculate distance with some metric to the rest of the yet unpaired data
+- pair it with the closest
+- iterate
+
+```{r}
+
+unpaired_cells <- 1:nrow(dat)  # for finding pairs
+split_is_train <- 1:nrow(dat)           # to keep track of train/test T for train false 
+pairs <-  matrix(0, nrow = nrow(dat), ncol = nrow(dat)) #to keep track of pairs
+
+dist_ <- function(cell_one, cell_two){
+  sqrt(sum((cell_one - cell_two) ^2))
+}
+
+while(T){
+  # handle case of odd number of cells
+  if(nrow(dat) %% 2 == 1){
+    cat("Odd number of cells, please randomly toss one out so that we can pair them up")
+    flag()
+    break
+  }
+    
+  current_cell <- sample(unpaired_cells,1)
+  remaining_cells <- unpaired_cells[-which(unpaired_cells == current_cell)]
+  
+  #calculate distances
+  dist_temp <- rep(0, length = length(remaining_cells))
+  for(other_cell in 1:length(remaining_cells)){
+    dist_temp[other_cell] <- dist_(dat[current_cell,], dat[other_cell,])
+  }
+  
+  # update stuff
+  closest_cell <- remaining_cells[which.min(dist_temp)]
+  split_is_train[current_cell] <- T
+  split_is_train[closest_cell] <- F
+  
+  pairs[current_cell, closest_cell] <- 1
+  pairs[closest_cell, current_cell] <- 1
+  unpaired_cells <- unpaired_cells[-which(unpaired_cells %in% c(current_cell, closest_cell))]
+  
+  #check if we are done
+  if(length(unpaired_cells) == 0){
+    break
+  }
+  
+}
+
+```
+
+Now that we have a train and test split we can use this to find an appropriate value for our hyperparameter lambda.
+
+### set initial cluster labels
+
+The end goal of the real biclust is that it can use another clustering method to find initial cluster labels, and then hopefully it could improve upon this using the additional information from scregclust
+
+For this simple example, our idea is to put some observations into the wrong cluster, and see if the biclust-algorithm can put them back to the true cluster. We set up cluster labels with mostly true labels, but a proportion of the labels permuted.
+
+```{r}
+disturbed_initial_cell_clust <- true_cell_clust
+disturbed_fraction <- 0.20
+for(i_cluster in 1:n_cell_clusters){
+  indexes_of_cluster <- which(true_cell_clust == i_cluster)
+  some_of_those_indexes <- sample(indexes_of_cluster, size=as.integer(length(indexes_of_cluster)*disturbed_fraction), replace = F)
+  disturbed_initial_cell_clust[some_of_those_indexes] <-
+    sample(c(1:n_cell_clusters)[-i_cluster],
+           size=length(some_of_those_indexes), replace=T)
+}
+
+
+cell_cluster_history <- cbind(true_cell_clust, disturbed_initial_cell_clust)
+colnames(cell_cluster_history) <- c("True allocation", "Disturbed allocation")
+```
+
+## Since we have our twinned data split, we set is so that the cells in the test split
+are set to the same cluster as their twin in the training split
+
+```{r}
+
+for(training_cell in which(split_is_train==1)){
+  disturbed_initial_cell_clust[which(pairs[training_cell,] == 1)] <-
+    disturbed_initial_cell_clust[training_cell]
+}
+
+cell_cluster_history <- cbind(true_cell_clust, disturbed_initial_cell_clust)
+colnames(cell_cluster_history) <- c("True allocation", "Disturbed allocation")
+
+```
+
+To keep track of things, we gather everything in a data structure that includes the original cell id, test/train split and cluster allocation
+
+```{r}
+dat <- cbind(dat,current_cell_cluster_allocation, split_is_train,1:nrow(dat))
+colnames(dat)[5] <- "cell_id"
+
+```
+
+
+
+## Biclust, first iteration
+Now it's time to actually do something resembling biclust.
+
+The real thing would obviously work for many iterations, but for now lets just walk through one iteration.
+
+First we set up and pre-allocate some variables that we'll use later.
+
+```{r}
+i_main <- 1  # Main iteration variable, just set it to one for now.
+max_iter <- 1  # This one would usually cap number of iterations, set to 1 for now
+
+
+# Find initial cluster labels
+initial_clustering <- disturbed_initial_cell_clust
+n_target_gene_clusters <- 1  # We are not clustering target genes for now and we only have one target gene
+
+
+# Set up some variables
+n_cell_clusters = length(unique(initial_clustering))
+n_target_genes = 1
+n_regulator_genes = 1
+
+
+# Set up cluster history
+initial_column_padding <- ncol(as.matrix(initial_clustering)) + 1  # +1 Because we have an index column that is not an index column it's an ID column
+cell_cluster_history <- data.frame(matrix(NA, nrow = nrow(as.matrix(initial_clustering)), ncol = max_iter + initial_column_padding))
+colnames(cell_cluster_history) <- c("Cell ID", 'Initial clustering', paste0("Iteration ", 1:max_iter))
+cell_cluster_history[, 'Cell ID'] <-1:length(initial_clustering)  # Set cell names
+cell_cluster_history[, 'Initial clustering'] <- initial_clustering
+
+
+# Pre-allocate all r2 matrices for later analysis if feasible
+like_all <- vector("list", length = max_iter)
+
+# Set flag for breaking out of the loop.
+stop_iterating_flag = T
+
+# Set the current cell clustering
+current_cell_cluster_allocation <- initial_clustering
+
+```
+
+First step is to, for each cell cluster separately, fit a standard linear model.
+
+```{r  fig.show="hold", out.width="50%"}
+
+
+# Fit model to each cell cluster, only using the train data
+models <- vector("list", length = n_cell_clusters)
+
+dat_temp <- cbind(dat,current_cell_cluster_allocation, split_is_train)
+
+for(cell_cluster in 1:n_cell_clusters){
+  #find which data rows are in this cell cluster and in the training data split
+  current_rows <- which(dat_temp[,3] == cell_cluster &
+                          dat_temp[,4] == 1)
+  models[[cell_cluster]] <- lm(dat_temp[current_rows,'target_expression'] ~ dat_temp[current_rows,'regulator_expression'])
+}
+
+p <- ggplot(as.data.frame(dat_train[,]), aes(x = regulator_expression,
+                                             y = target_expression,
+                                             color=factor(cluster))) +
+  geom_point() +
+  geom_abline(intercept = coef(models[[1]])[1], slope = coef(models[[1]])[2], color = "red") +
+  geom_abline(intercept = coef(models[[2]])[1], slope = coef(models[[2]])[2], color = "cyan") +
+  labs(title = "Scatterplot with Regression Lines")
+
+# Reset changes used for this plot
+ # dat <- dat[,1:2]
+
+#plot output
+p + labs(color = "Starting cell cluster allocation")
+
+```
+
+Now that we have fitted some models, it's time to re-allocate cells to appropriate clusters.
+
+To do this, we calculate the probability of each cell to follow from each linear model. This is an extremely simplified version of what we will later look into.
+
+Since there is only one regulator gene, we will skip the L1 penalty for adding coefficients that we would use in a larger model, and instead only look at the negative log-likelihood.
+
+
+```{r}
+  # For all cells, calculate the likelihood of coming from the model corresponding to each 
+  like <- matrix(0, nrow = sum(split_is_train), ncol = n_cell_clusters)
+
+  # Calculate the residual target gene variance for each gene and cluster
+  # (so just one gene).
+  TARGET_GENE_RESIDUAL_STD <-  matrix(0, nrow = n_target_genes, ncol = n_cell_clusters)
+  # dat is dat <- cbind(target_expression, regulator_expression), e.g. a 2x100, with e.g. the first 50 rows being true cell cluster 1
+  # 100x2 * 2x1 
+  dat_temp <- cbind(dat,current_cell_cluster_allocation, split_is_train)
+  
+  for(cell_cluster in 1:n_cell_clusters){
+    #
+    intercept_and_regulatorgenes <- as.matrix(cbind(rep(1,sum(split_is_train)),
+                                                    dat_temp[,ind_reggenes]))  # 100x2
+    current_rows <- which(dat_temp[,3] == cell_cluster &
+                          dat_temp[,4] == 1)
+    
+    std_of_residuals_of_target_genes_temp <- dat[current_rows,ind_targetgenes] - (intercept_and_regulatorgenes[current_rows,] %*% models[[cell_cluster]]$coefficients)
+    TARGET_GENE_RESIDUAL_STD[cell_cluster]  <- sqrt(var(std_of_residuals_of_target_genes_temp))
+  }
+  
+  for(cell in 1:nrow(dat)){
+    for(cell_cluster in 1:n_cell_clusters){
+      # Bug fix hack: remove NA coefficients
+      if(any(is.na(models[[cell_cluster]]$coefficients))){
+        NA_coeffs <-  unname(which(is.na(models[[cell_cluster]]$coefficients)))
+        S_ERR <- (dat[cell,ind_targetgenes] - as.vector(c(1,dat[cell,c(-1, -NA_coeffs)])) %*% models[[cell_cluster]]$coefficients[-NA_coeffs])^2
+      }
+      SQUARED_ERROR <- (dat[cell,ind_targetgenes] - as.vector(c(1,dat[cell,ind_reggenes])) %*% models[[cell_cluster]]$coefficients)^2
+      
+      like[cell,cell_cluster] <- SQUARED_ERROR / TARGET_GENE_RESIDUAL_STD[cell_cluster]
+    }
+  }
+
+  like_all[[i_main]] <- like
+
+  r2plot(iteration = i_main,
+       r2 = like,
+       prev_cell_clust = true_cell_clust)
+
+  p <- ggplot(data = as.tibble(cbind(like, true_cell_clust)),
+       aes(x = V1, y = V2, color = as.factor(true_cell_clust))
+      ) +
+      geom_point() +
+        geom_abline(intercept = 0, slope = 1)+
+        labs(x = "Log-likelihood for fitting into cluster 1", y = "Log-likelihood for fitting into cluster 2")
+  
+  p + labs(color = "True cell cluster")
+
+```
+
+
+And now that we have our like data, it's time to re-assign cluster labels. This is straightforward, we just select the r2 column with the lowest r2, indicating best fit.
+Usually this would raise the concern of over-fitting, since a cell was used to fit the model for the cluster it was in the start of the iteration. If that was a big problem, cells would tend to be assigned to the same cluster as they started in. As you can see, that's not really a problem.
+
+```{r}
+  # Update cluster allocations
+  updated_cell_clust <-  sapply(1:nrow(like), function(row) which.max(like[row,]))
+
+
+  # Update data in cell_cluster_history
+  cell_cluster_history[, i_main + initial_column_padding] <- updated_cell_clust
+
+  RI(true_cell_clust,updated_cell_clust)
+
+```
+
+
+```{r}
+
+cell_cluster_history_plotting <-cbind('Cell ID' = cell_cluster_history[,1],
+                             true_cell_clust,
+                             cell_cluster_history[,c(2,3)])
+
+plot_cluster_history(cell_cluster_history = cell_cluster_history_plotting)
+
+```
+So in this super simple version the cells find their way back. 
+
+
