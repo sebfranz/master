@@ -4,6 +4,10 @@
 # Here it's randomly generated, for real data it would be smartly guessed.
 # Rows are cluster index.
 # Cols are target gene index.
+
+if (!require(here)) install.packages('aricode')
+library(aricode)  # To calculate rand index
+
 generate_dummy_data_for_scregclust <- function(
     n_target_genes = 10,  # Number of target genes
     n_regulator_genes = 5,  # Number of regulator genes
@@ -84,7 +88,7 @@ generate_dummy_data_for_scregclust <- function(
   # gene to different clusters
   for(i_target_gene_cluster in 1:n_target_gene_clusters){
     for(i_target_gene in i_target_gene_cluster:min(i_target_gene_cluster, ncol(Pi))){
-      print(paste("Target gene cluster", i_target_gene_cluster, "Target gene", i_target_gene))
+      # print(paste("Target gene cluster", i_target_gene_cluster, "Target gene", i_target_gene))
       Pi[i_target_gene_cluster, i_target_gene] <- 1
     }
   }
@@ -217,7 +221,6 @@ generate_dummy_data_for_scregclust <- function(
   # This is just to output the correct Betas for debugging
   Beta_with_signs <- vector("list", length = n_target_gene_clusters)
   for(i_target_gene_cluster in 1:n_target_gene_clusters){
-    print(i_target_gene_cluster)
     Beta_with_signs[[i_target_gene_cluster]] <-  (diag_(S[i_target_gene_cluster,]) %*% Beta[,,i_target_gene_cluster])  %*% diag_(Pi[i_target_gene_cluster,])
   }
 
@@ -238,6 +241,24 @@ generate_dummy_data_for_scregclust <- function(
     }
 
     # cat(paste0("building cluster ", i,"\n_cells"))
+  }
+
+  # Check if generated data gives rand index 1. If not stop execution
+  scregclust(
+    expression = rbind(t(Z_t), t(Z_r)),    #scRegClust wants this form
+    genesymbols = 1:(n_target_genes+n_regulator_genes),               #gene row numbers
+    is_regulator = (1:(n_target_genes+n_regulator_genes) > n_target_genes) + 0, #vector indicating which genes are regulators
+    n_cl        = n_target_gene_clusters,
+    penalization = 0.001,
+    verbose = FALSE
+  )-> scRegOut
+
+  true_clust_allocation <- apply(X=Pi, MARGIN=2, FUN=function(x) which(x==1))
+  predicted_cluster_allocation <- scRegOut$results[[1]]$output[[1]]$cluster[1:n_target_genes]
+  rand_index <- aricode::RI(true_clust_allocation, predicted_cluster_allocation)
+
+  if(rand_index!=1){
+    stop("scregclust couldn't find correct clusters in generated data. Rand index:", rand_index)
   }
 
   # This can probably be vectorized

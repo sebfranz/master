@@ -1,9 +1,14 @@
 rm(list = ls())
+if (!require(plyr)) install.packages('plyr')
+if (!require(here)) install.packages('aricode')
+if (!require(here)) install.packages('here')
 library(scregclust)
 library(plyr)
+library(here)
 library(aricode)  # To calculate rand index
 
-execution_path <- dirname(rstudioapi::getSourceEditorContext()$path)
+root_path <- here::here()
+execution_path <- file.path(root_path, "simulate_data")
 source(paste0(execution_path,"/functions/generate_dummy_data_for_cell_clustering.R"))
 source(paste0(execution_path,"/../functions/biclust.R"))
 source(paste0(execution_path,"/../functions/plot_cluster_history.R"))
