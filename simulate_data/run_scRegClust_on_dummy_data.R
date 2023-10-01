@@ -13,8 +13,8 @@ generate_dummy_data_function_path <- file.path(execution_path,"functions", "gene
 source(generate_dummy_data_function_path)
 
 # set.seed(14)
-Pt = 10      #number of target genes
-Pr = 5       #number of regulator genes
+Pt = 50      #number of target genes
+Pr = 20       #number of regulator genes
 n  = 10000   #number of cells
 K  = 3       #Number of target gene clusters
 regulator_mean   = 1
