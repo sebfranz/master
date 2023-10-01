@@ -1,8 +1,16 @@
+#!/usr/bin/Rscript
+if (!require(here)) install.packages('here')
+if (!require(here)) install.packages('aricode')
+library(scregclust)
+library(here)
+library(aricode)  # To calculate rand index
 
-execution_path <- dirname(rstudioapi::getSourceEditorContext()$path)
-source(paste0(execution_path,"/functions/generate_dummy_data_for_scregclust.R"))
+root_path <- here::here()
+execution_path <- file.path(root_path, "simulate_data")
+generate_dummy_data_function_path <- file.path(execution_path,"functions", "generate_dummy_data_for_scregclust.R")
+source(generate_dummy_data_function_path)
 
-
+set.seed(14)
 Pt = 10      #number of target genes
 Pr = 5       #number of regulator genes
 n  = 10000   #number of cells
@@ -24,8 +32,6 @@ for(iter in 1:length(names(dummy_res))) {
 }
 
 # apply simulated data to scregclust ---------------------------------------
-library(scregclust)
-?scregclust
 
 scregclust(
   expression = rbind(t(Z_t), t(Z_r)),    #scRegClust wants this form
@@ -41,5 +47,22 @@ scRegOut$results
 rowSums(Pi)
 rowSums(R)
 plot(scRegOut)$data
+
+true_clust_allocation <- apply(X=Pi, MARGIN=2, FUN=function(x) which(x==1))
+predicted_cluster_allocation <- scRegOut$results[[1]]$output[[1]]$cluster[1:Pt]
+rand_index <- aricode::RI(true_clust_allocation, predicted_cluster_allocation)
+print(paste("Rand Index:", rand_index))
+
+# Create an sB matrix that looks like generated dummy data's B
+# A regulator gene can affect all or none target genes. A target gene can only be in one target gene cluster.
+# The coeffs from scregclust are probably normalised so they can probably not be compared to the generated datas B.
+# sB_temp <- scRegOut$results[[1]]$output[[1]]$coeffs
+# cluster <- scRegOut$results[[1]]$output[[1]]$cluster[1:Pt]
+# sB <-  vector("list", length = K)
+# for(i_cell_cluster in 1:K){
+#   sB[[i_cell_cluster]] <- matrix(data = 0, nrow = Pr, ncol=Pt)
+#   inds <- which(cluster==i_cell_cluster)
+#   sB[[i_cell_cluster]][,inds] <- sB_temp[[i_cell_cluster]]
+# }
 
 
