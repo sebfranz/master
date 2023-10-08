@@ -1,20 +1,32 @@
 #!/usr/bin/Rscript
-# Binary matrix Pi --------------------------------------------------------
-# Which target gene is allocated to which cluster.
-# Here it's randomly generated, for real data it would be smartly guessed.
-# Rows are cluster index.
-# Cols are target gene index.
 
-if (!require(here)) install.packages('aricode')
-library(aricode)  # To calculate rand index
-
+#' Dummy data generation for scRegClust
+#'
+#' Generates dummy data that work with scRegClust.
+#' Rows are cluster index. Cols are target gene index.
+#' @param n_target_genes The number of target genes
+#' @param n_regulator_genes The number of regulator genes
+#' @param n_cells The number of cells
+#' @param n_target_gene_clusters The number of target gene clusters
+#' @param regulator_mean Mean expression of regulator genes
+#' @param coefficient_mean Mean coefficients in true model, length n_target_gene_clusters
+#' @return A list with
+#'   \item{Z_t}{a}
+#'   \item{Z_r}{a}
+#'   \item{Pi}{n_target_gene_clusters x n_target_genes. True cell cluster allocation.}
+#'   \item{R}{a}
+#'   \item{S}{a}
+#'   \item{B}{a}
+#' @examples
+#' res <- generate_dummy_data_for_scregclust(50, 30, 1000, 3, 1, c(1,20,100));
+#' @export
 generate_dummy_data_for_scregclust <- function(
-    n_target_genes = 10,  # Number of target genes
-    n_regulator_genes = 5,  # Number of regulator genes
+    n_target_genes = 50,  # Number of target genes
+    n_regulator_genes = 30,  # Number of regulator genes
     n_cells  = 1000,  # Number of cells
     n_target_gene_clusters  = 3,  # Number of target gene clusters
     regulator_mean   = 1,  # Mean expression of regulator genes
-    coefficient_mean = c(1,20,100)  # Mean coefficients in true model, length n_target_gene_clusters
+    coefficient_mean = c(30,50,100)  # Mean coefficients/betas in true model, length n_target_gene_clusters
 )
 {
   # Check arguments
@@ -42,7 +54,7 @@ generate_dummy_data_for_scregclust <- function(
     }
 
     if(positive){
-      if (x < 0) {
+      if (!all(x > 0)) {
         add_message <- (paste0(deparse(substitute(x)), " must be >=0."))
         error_message <- paste(error_message, add_message, sep="\n")
       }
@@ -65,8 +77,8 @@ generate_dummy_data_for_scregclust <- function(
   checks(n_regulator_genes)
   checks(n_cells)
   checks(n_target_gene_clusters)
-  checks(regulator_mean, one_element=TRUE, atomic=TRUE, numeric=TRUE, positive=FALSE, int=FALSE)
-  checks(coefficient_mean, one_element=FALSE, atomic=TRUE, numeric=TRUE, positive=FALSE, int=FALSE)
+  checks(regulator_mean, one_element=TRUE, atomic=TRUE, numeric=TRUE, positive=TRUE, int=FALSE)
+  checks(coefficient_mean, one_element=FALSE, atomic=TRUE, numeric=TRUE, positive=TRUE, int=FALSE)
 
   if (length(coefficient_mean) != n_target_gene_clusters) {
     stop(paste0("coefficient_mean has length ", length(coefficient_mean), ", but must have length n_target_gene_clusters: ",n_target_gene_clusters,"."))
@@ -167,6 +179,10 @@ generate_dummy_data_for_scregclust <- function(
                 ncol = n_regulator_genes)
   # Z_r <- sapply(1:n_regulator_genes, function(i)  rnorm(n_cells, mean = runif(1, 0.1,1), sd = 0.1) )
 
+  if(!all(Z_r>0)){
+    stop("Not all regulator genes generated where positive, try with a larger regulator gene mean.")
+  }
+
   # Z_r
   # dim(Z_r)
 
@@ -174,7 +190,7 @@ generate_dummy_data_for_scregclust <- function(
   # Now we want to build 𝚩 and use 𝚩 to build Z_t.
   # For that we need some coefficients from our regression models.
   # These coefficients are stored in the array Beta, which has
-  # dimension  n_regulator_genes x n_target_genes x n_target_gene_clusters with nonegative entries
+  # dimension  n_regulator_genes x n_target_genes x n_target_gene_clusters with non-negative entries
   # in this we store the (in the manuscript only the non-zero) coefficients
   # describing how the regulator genes affect the target genes.
 
@@ -186,6 +202,10 @@ generate_dummy_data_for_scregclust <- function(
     data = sapply(1:n_target_gene_clusters, function(i) rnorm(n_regulator_genes*n_target_genes, mean = coefficient_mean[i], sd = 0.1)),
     dim = c(n_regulator_genes,n_target_genes,n_target_gene_clusters)
   )
+
+  if(!all(Beta>0)){
+    stop("Not all betas generated where positive, try with a larger coefficient mean.")
+  }
 
   # Beta <- array(data = unlist(
   #   sapply(1:n_target_gene_clusters, function(i) rnorm(n_regulator_genes*n_target_genes, mean = runif(1,min = 1, max = 1), sd = 0.1), simplify = F)
@@ -226,15 +246,18 @@ generate_dummy_data_for_scregclust <- function(
 
   # Todo: Vectorize this
   # Create Z_t
-  for(i in 1:n_target_gene_clusters){
-    for(j in 1:n_target_genes){
-      Z_t[,j] <-
-        Z_t[,j] +
-        Pi[i,j] *                #  True cluster allocation, zero if Z_t[,j] is not in cluster i
+  for(i_target_gene_cluster in 1:n_target_gene_clusters){
+    for(i_target_gen in 1:n_target_genes){
+      target_gene <- Z_r[,R2R_i(i_target_gene_cluster)] %*%     # Gene expression of regulators of cluster i
+        diag_(S2S_i(i_target_gene_cluster)) %*%  # Signs for whether regulators are stimulating or repressing
+        Beta2Beta_i(i_target_gene_cluster)[,i_target_gen]   # How much reg of cluster i affects target j
+      error_mean <- mean(target_gene)/10
+
+      Z_t[,i_target_gen] <-
+        Z_t[,i_target_gen] +
+        Pi[i_target_gene_cluster,i_target_gen] *                #  True cluster allocation, zero if Z_t[,j] is not in cluster i
         (
-          Z_r[,R2R_i(i)] %*%     # Gene expression of regulators of cluster i
-            diag_(S2S_i(i)) %*%  # Signs for whether regulators are stimulating or repressing
-            Beta2Beta_i(i)[,j]   # How much reg of cluster i affects target j
+          target_gene + rnorm(n_cells, mean = error_mean, sd = error_mean*0.1)  # Error-term
         )
 
 
@@ -244,7 +267,7 @@ generate_dummy_data_for_scregclust <- function(
   }
 
   # Check if generated data gives rand index 1. If not stop execution
-  scregclust(
+  scregclust::scregclust(
     expression = rbind(t(Z_t), t(Z_r)),    #scRegClust wants this form
     genesymbols = 1:(n_target_genes+n_regulator_genes),               #gene row numbers
     is_regulator = (1:(n_target_genes+n_regulator_genes) > n_target_genes) + 0, #vector indicating which genes are regulators
@@ -276,9 +299,13 @@ generate_dummy_data_for_scregclust <- function(
 # runs only when script is run by itself
 # || interactive()
 if (sys.nframe() == 0){
-  # ... do main stuff7
-  print("")
-  print(!interactive())
-  print(sys.nframe() == 0 )
-  print("hej")
+  # ... do main stuff
+  res <- generate_dummy_data_for_scregclust( n_target_genes = 50,  # Number of target genes
+                                             n_regulator_genes = 30,  # Number of regulator genes
+                                             n_cells  = 10000,  # Number of cells
+                                             n_target_gene_clusters  = 3,  # Number of target gene clusters
+                                             regulator_mean   = 1,  # Mean expression of regulator genes
+                                             coefficient_mean = c(5,20,100)  # Mean coefficients/betas in true model, length n_target_gene_clusters)
+  )
+  print(str(res))
 }
