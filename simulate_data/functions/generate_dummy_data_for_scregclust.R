@@ -257,7 +257,7 @@ generate_dummy_data_for_scregclust <- function(
         Z_t[,i_target_gen] +
         Pi[i_target_gene_cluster,i_target_gen] *                #  True cluster allocation, zero if Z_t[,j] is not in cluster i
         (
-          target_gene + rnorm(n_cells, mean = error_mean, sd = error_mean*0.1)  # Error-term
+          target_gene + rnorm(n_cells, mean = error_mean, sd = abs(error_mean)*0.1)  # Error-term
         )
 
 
@@ -268,9 +268,9 @@ generate_dummy_data_for_scregclust <- function(
 
   # Check if generated data gives rand index 1. If not stop execution
   scregclust::scregclust(
-    expression = rbind(t(Z_t), t(Z_r)),    #scRegClust wants this form
-    genesymbols = 1:(n_target_genes+n_regulator_genes),               #gene row numbers
-    is_regulator = (1:(n_target_genes+n_regulator_genes) > n_target_genes) + 0, #vector indicating which genes are regulators
+    expression = rbind(t(Z_t), t(Z_r)),  # scRegClust wants this form
+    genesymbols = 1:(n_target_genes+n_regulator_genes),  # gene row numbers
+    is_regulator = (1:(n_target_genes+n_regulator_genes) > n_target_genes) + 0,  # vector indicating which genes are regulators
     n_cl        = n_target_gene_clusters,
     penalization = 0.001,
     verbose = FALSE
