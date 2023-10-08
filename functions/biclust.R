@@ -269,6 +269,43 @@ calculate_R2 <- function(n_target_gene_clusters,
   return(adjusted_R2)
 }
 
+
+# After we run scregclust it's interesting to save how many target gene clusters
+# it actually managed to fill, along side how many regulator and target genes
+# it used.
+calc_scregclust_stats <- function(b, total_target_genes, total_regulator_genes){
+  total_target_genes_used <- 0
+  total_regulator_genes_used_vector <- vector(length=total_regulator_genes)
+  total_used_target_gene_clusters <- 0
+  for(i in 1:length(b)){
+    if(is.null(b[[i]])){
+      target_genes <- 0
+      regulators <- 0
+    }else{
+      target_genes <- ncol(b[[i]])
+      regulator_vector <- apply(X = b[[i]]!=0, MARGIN = 1, FUN = all)
+      regulators <- sum(regulator_vector)
+      total_regulator_genes_used_vector <- total_regulator_genes_used_vector + regulator_vector
+      total_used_target_gene_clusters <- total_used_target_gene_clusters + 1
+    }
+    total_target_genes_used <- total_target_genes_used + target_genes
+
+    print(paste("Cluster", i, "T", target_genes, "R", regulators))
+
+  }
+  total_used_regulators <- sum(regulator_vector!=0)
+  print(paste0("Total used target genes ", total_target_genes_used, "/", total_target_genes,
+               ". Total used regulators ", total_used_regulators, "/", total_regulator_genes,
+               ". Total used target gene clusters ", total_used_target_gene_clusters, "/", length(b)))
+  res <- c("total_target_genes_used"=total_target_genes_used,
+           "total_target_genes"=total_target_genes,
+           "total_used_regulators"=total_used_regulators,
+           "total_regulator_genes"=total_regulator_genes,
+           "total_used_target_gene_clusters"=total_used_target_gene_clusters,
+           "total_target_gene_clusters"=length(b))
+  return(res)
+}
+
 biclust <- function(max_iter=50,
                     initial_cluster_history,
                     is_regulator,  # Input dataset has to have rows sorted so that targets are highest
@@ -296,7 +333,7 @@ biclust <- function(max_iter=50,
   cell_cluster_history[, 'Cell ID'] <-1:nrow(initial_cluster_history)  # Set cell names
   cell_cluster_history[, colnames(initial_cluster_history)] <- initial_cluster_history
   prev_cell_clust <- initial_cluster_history[, ncol(initial_cluster_history)]
-
+  stats_scregclust <- vector(mode = "list", length = max_iter)
   # Set exit flag
   stop_iterating_flag <- F
 
@@ -306,11 +343,13 @@ biclust <- function(max_iter=50,
 
     # Preallocate outputs
     out_list <- vector(mode = "list", length = n_cell_clusters)
+    stats_out_list <- vector(mode = "list", length = n_cell_clusters)
     # List of last iterations gene clustering
     prev_target_gene_clusters <- vector(mode = "list", length = n_cell_clusters)
     CELL_DATA_SPLIT <- vector(mode = "list", length = n_cell_clusters)
     for(i_cluster in 1:n_cell_clusters){
       # Get data for cell cluster i_cluster specifically
+      print(paste("Running scregclust for cell cluster", i_cluster))
       local_dat <- train_dat[, which(prev_cell_clust == i_cluster), drop=FALSE]
       # local_dat <- as.matrix(local_dat, nrow=, ncol=length(which(prev_cell_clust == i_cluster)))
       # Training data are represented by 1 and test data by 2
@@ -329,19 +368,22 @@ biclust <- function(max_iter=50,
         expression             = local_dat,  # p rows of genes and n columns of cells of single cell expression data
         split_indices          = cell_data_split,  # Train/test data split indicated by 1s and 2s\
         genesymbols            = paste0('g', 1:(n_target_genes+n_regulator_genes)),  # Gene row names
-        is_regulator           = is_regulator,  # Vectorindicatsing which genes are regulators
+        is_regulator           = is_regulator,  # Vector indicating which genes are regulators
         n_cl                   = n_target_gene_clusters[i_cluster],
         target_cluster_start   = target_gene_cluster_start,
         penalization           = penalization_parameter,
-        verbose                = FALSE,
-        max_optim_iter         = 10000,
+        verbose                = TRUE,
+        max_optim_iter         = 100000,
         ...
       ) -> out_list[[i_cluster]]
+
+      stats_out_list[[i_cluster]] <- calc_scregclust_stats(b=out_list[[i_cluster]]$results[[1]]$output[[1]]$coeffs, total_target_genes=n_target_genes, total_regulator_genes=n_regulator_genes)
+
 
       # Store gene clustering for next iteration
       prev_target_gene_clusters[[i_cluster]] <- out_list[[i_cluster]]$results[[1]]$output[[1]]$cluster
     }
-
+    stats_scregclust[[i_main]] <- stats_out_list
 
 
     R2 <- calculate_R2_per_cluster(n_target_gene_clusters,
@@ -354,23 +396,26 @@ biclust <- function(max_iter=50,
                                    train_dat,
                                    CELL_DATA_SPLIT)
 
-    print("R2----------")
-    print(str(R2))
-    print((data.frame(R2[, 1:7])))
-    print("------------")
+    # print("R2----------")
+    # print(str(R2))
+    # print((data.frame(R2[, 1:7])))
+    # print("------------")
 
     # Plot histograms of r2
-    if(plot_r2){
-      par(mfrow=c(length(unique(prev_cell_clust)),n_cell_clusters))
-      for(i_cells_from_cell_cluster in 1:length(unique(prev_cell_clust))){
-        for(i_fits_into_cell_cluster in 1:length(unique(prev_cell_clust))){
-          print(paste(i_cells_from_cell_cluster, i_fits_into_cell_cluster))
-          ind_for_cell_cluster <- which(rep(1:n_cell_clusters, n_target_gene_clusters)==i_fits_into_cell_cluster)
-          hist(R2[ind_for_cell_cluster, prev_cell_clust==i_cells_from_cell_cluster], breaks=10000, main=paste("Cells from cell cluster", i_cells_from_cell_cluster, "\nfits into cell cluster", i_fits_into_cell_cluster, "with r2:"))
-        }
-      }
-      mtext(paste("Iteration", i_main), side = 3, line = -1, outer = TRUE)
-    }
+    # if(plot_r2){
+    #   par(mfrow=c(length(unique(prev_cell_clust)),n_cell_clusters))
+    #   for(i_cells_from_cell_cluster in 1:length(unique(prev_cell_clust))){
+    #     for(i_fits_into_cell_cluster in 1:length(unique(prev_cell_clust))){
+    #       print(paste(i_cells_from_cell_cluster, i_fits_into_cell_cluster))
+    #       ind_for_cell_cluster <- which(rep(1:n_cell_clusters, n_target_gene_clusters)==i_fits_into_cell_cluster)
+    #       print(str(ind_for_cell_cluster))
+    #       print(str(prev_cell_clust==i_cells_from_cell_cluster))
+    #       R2_data_to_plot <- R2[ind_for_cell_cluster, prev_cell_clust==i_cells_from_cell_cluster]
+    #       hist(R2_data_to_plot, breaks=10000, main=paste("Cells from cell cluster", i_cells_from_cell_cluster, "\nfits into cell cluster", i_fits_into_cell_cluster, "with r2:"))
+    #     }
+    #   }
+    #   mtext(paste("Iteration", i_main), side = 3, line = -1, outer = TRUE)
+    # }
     # Update cluster allocation to the appropriate cell cluster -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
     # This can be done in some different ways,
@@ -385,13 +430,29 @@ biclust <- function(max_iter=50,
     # updated_cell_clust <-  cluster_update(-R2, n_cell_clusters, n_target_gene_clusters)
     updated_cell_clust <-  (1:n_cell_clusters)[apply(R2, 2, which.max)]
 
-    # If there is only 1 cell left in a cell cluster it doesn't work
+    # If there is less or equal cells left in a cell cluster
+    # than there are regulator genes scregclust complains.
+    # Since we split in train/test cells needs to be twice +2 the amount of
+    # regulator genes or it doesn't work
     # Move that cell to the biggest cell cluster.
-    updated_cell_clust_table <- data.frame(table(updated_cell_clust))
 
+    updated_cell_clust_table <- data.frame(table(updated_cell_clust))
+    updated_cell_clust_table_labels <- as.numeric(as.character(updated_cell_clust_table[,'updated_cell_clust']))
+    updated_cell_clust_table_freq <- as.numeric(updated_cell_clust_table$Freq)
+    minimum_allowed_cells_in_cluster <- (n_regulator_genes*2+2)
     for(i_cell_cluster in 1:n_cell_clusters){
-      if (length(which(updated_cell_clust==i_cell_cluster)) == 1){
-        updated_cell_clust[which(updated_cell_clust==i_cell_cluster)] <- which.max(updated_cell_clust_table$Freq)
+      cells_ind_in_cell_cluster_i <- which(updated_cell_clust==i_cell_cluster)
+      n_cells_in_cell_cluster_i <- length(cells_ind_in_cell_cluster_i)
+      if ((n_cells_in_cell_cluster_i!=0) && (n_cells_in_cell_cluster_i <= minimum_allowed_cells_in_cluster)){
+
+        ind_of_max_size_cluster_in_table <- which.max(updated_cell_clust_table_freq)
+        largest_cell_cluster <- updated_cell_clust_table_labels[ind_of_max_size_cluster_in_table]
+        print(paste0("To few cells in cell cluster ", i_cell_cluster, " (", n_cells_in_cell_cluster_i, " cells), so moving them to cell cluster ", largest_cell_cluster))
+        updated_cell_clust[cells_ind_in_cell_cluster_i] <- largest_cell_cluster
+
+        updated_cell_clust_table <- data.frame(table(updated_cell_clust))
+        updated_cell_clust_table_labels <- as.numeric(as.character(updated_cell_clust_table[,'updated_cell_clust']))
+        updated_cell_clust_table_freq <- as.numeric(updated_cell_clust_table$Freq)
       }
     }
 
@@ -440,7 +501,7 @@ biclust <- function(max_iter=50,
     }
   }
 
-  return(list(cell_cluster_history=cell_cluster_history))
+  return(list(cell_cluster_history=cell_cluster_history, stats_scregclust=stats_scregclust))
 }
 
 
