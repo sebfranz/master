@@ -56,10 +56,12 @@ generate_dummy_data_for_cell_clustering <- function(
 
   # Kod för att flytta 1% av cellerna i varje kluster till ett annat kluster.
   disturbed_initial_cell_clust <- initial_cell_clust
-  for(i_cluster in 1:n_cell_clusters){
-    indexes_of_cluster <- which(initial_cell_clust == i_cluster)
-    some_of_those_indexes <- sample(indexes_of_cluster, size=as.integer(length(indexes_of_cluster)*disturbed_fraction), replace = F)
-    disturbed_initial_cell_clust[some_of_those_indexes] <- sample(c(1:n_cell_clusters)[-i_cluster], size=length(some_of_those_indexes), replace=T)
+  if(disturbed_fraction>0){
+    for(i_cluster in 1:n_cell_clusters){
+      indexes_of_cluster <- which(initial_cell_clust == i_cluster)
+      some_of_those_indexes <- sample(indexes_of_cluster, size=as.integer(length(indexes_of_cluster)*disturbed_fraction), replace = F)
+      disturbed_initial_cell_clust[some_of_those_indexes] <- sample(c(1:n_cell_clusters)[-i_cluster], size=length(some_of_those_indexes), replace=T)
+    }
   }
 
   return(list(disturbed_initial_cell_clust=disturbed_initial_cell_clust,

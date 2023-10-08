@@ -36,7 +36,7 @@ res <- generate_dummy_data_for_cell_clustering(
     n_cells = n_cells,
     regulator_means = regulator_means,  # For generating dummy data, regulator mean in each cell cluster
     coefficient_means = coefficient_means,  # For generating dummy data, coefficient means in each cell cluster
-    disturbed_fraction = 0.001
+    disturbed_fraction = 0
 )
 
 cell_cluster_history <- cbind(res$initial_cell_clust, res$disturbed_initial_cell_clust)

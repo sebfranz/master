@@ -293,7 +293,7 @@ calc_scregclust_stats <- function(b, total_target_genes, total_regulator_genes){
     print(paste("Cluster", i, "T", target_genes, "R", regulators))
 
   }
-  total_used_regulators <- sum(regulator_vector!=0)
+  total_used_regulators <- sum(total_regulator_genes_used_vector!=0)
   print(paste0("Total used target genes ", total_target_genes_used, "/", total_target_genes,
                ". Total used regulators ", total_used_regulators, "/", total_regulator_genes,
                ". Total used target gene clusters ", total_used_target_gene_clusters, "/", length(b)))
