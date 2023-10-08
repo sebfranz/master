@@ -21,7 +21,7 @@ generate_dummy_data_for_cell_clustering <- function(
 
   dummy_data <- vector(mode = "list", length = n_cell_clusters)
   for(i_cluster in 1:n_cell_clusters){
-    print(i_cluster)
+    print(paste("Generating data for cell cluster", i_cluster))
     dummy_data[[i_cluster]] <- generate_dummy_data_for_scregclust(n_target_genes,
                                                                   n_regulator_genes,
                                                                   n_cells = n_cells[i_cluster],

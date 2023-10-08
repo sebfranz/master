@@ -155,16 +155,16 @@ calculate_R2_per_cluster <- function(n_target_gene_clusters,
         SST_sum_adjusted <- sum(SST)/(ncol(target_gene_clusters_in_this_cell_cluster_i_yvals) - nrow(xvals))
 
         sigmas <- sqrt(unlist(out_list[[i_target_cell_cluster]]$results[[1]]$output[[1]]$sigmas)^2)
-        print("Sigmas")
-        print(sigmas)
-        sigmas <- matrix(rep(sigmas,ncol(target_gene_clusters_in_this_cell_cluster_i_yvals)), nrow=length(sigmas), ncol=ncol(target_gene_clusters_in_this_cell_cluster_i_yvals))
+        # print("Sigmas")
+        # print(sigmas)
+        # sigmas <- matrix(rep(sigmas,ncol(target_gene_clusters_in_this_cell_cluster_i_yvals)), nrow=length(sigmas), ncol=ncol(target_gene_clusters_in_this_cell_cluster_i_yvals))
         SSR <- (target_gene_clusters_in_this_cell_cluster_i_yvals - (t(betas_for_cells_cluster_i*0) %*% xvals))^2
         SSR <- as.matrix(SSR, nrow=length(target_gene_ids_in_cluster_i), ncol=ncol(target_gene_clusters_in_this_cell_cluster_i_yvals))/sigmas
         SSR_sum_adjusted <- colSums(SSR)/(ncol(target_gene_clusters_in_this_cell_cluster_i_yvals) - 1)
 
-        # adjusted_R2[i_target_cell_cluster, prev_cell_clust == i_from_cell_cluster] <- -SSR_sum_adjusted # 1 - SSR_sum_adjusted/SST_sum_adjusted
         # R2[i_total_target_geneclusters, prev_cell_clust == i_from_cell_cluster] <- 1 - colSums(SSR)/sum(SST)
         adjusted_R2[i_target_cell_cluster, prev_cell_clust == i_from_cell_cluster] <- 1 - SSR_sum_adjusted/SST_sum_adjusted
+        # adjusted_R2[i_target_cell_cluster, prev_cell_clust == i_from_cell_cluster] <- 1 - SSR_sum_adjusted/SST_sum_adjusted
         # MSE[i_total_target_geneclusters, prev_cell_clust == i_from_cell_cluster] <- colMeans(SSR)
         # }
       }

@@ -13,17 +13,17 @@ source(file.path(execution_path,"functions", "generate_dummy_data_for_cell_clust
 source(file.path(root_path,"functions", "biclust.R"))
 source(file.path(root_path,"functions", "plot_cluster_history.R"))
 
-set.seed(14)  # This seed crashes due to scregclust producing NULL in all target gene clusters in the only cell cluster left
+set.seed(1126)  # This seed crashes due to scregclust producing NULL in all target gene clusters in the only cell cluster left
 
 # Set variables ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 n_cell_clusters <- 3
 n_target_gene_clusters <- c(2,3,4)  # Number of target gene clusters in each cell cluster
 n_target_genes <- 40
-n_regulator_genes <- 20
-n_cells <- c(10000,50000,100000)
+n_regulator_genes <- 30
+n_cells <- c(1000,5000,10000)
 regulator_means <- c(1, 5, 20)  # For generating dummy data, regulator mean in each cell cluster
-coefficient_means <- list(c(10, 20), c(400, 500, 600), c(80, 90, 100, 110))  # For generating dummy data, coefficient means in each cell cluster
+coefficient_means <- list(c(1, 20), c(4, 5, 6), c(8, 9, 10, 11))  # For generating dummy data, coefficient means in each cell cluster
 true_cluster_allocation <- rep(1:n_cell_clusters, times=n_cells)
 total_n_cells <- sum(n_cells)
 
@@ -55,4 +55,4 @@ res <- biclust(max_iter=50,
                penalization_parameter = 1,
                plot_r2 = FALSE)
 
-plot_cluster_history(cell_cluster_history = res$cell_cluster_history)
+  plot_cluster_history(cell_cluster_history = res$cell_cluster_history, correct_plot=FALSE)

@@ -19,7 +19,7 @@ library(reshape2)
 library(dplyr)
 library(aricode)  # To calculate rand index
 
-plot_cluster_history <- function(cell_cluster_history){
+plot_cluster_history <- function(cell_cluster_history, correct_plot=TRUE){
 
   d <- cell_cluster_history
   d <- d[ , colSums(is.na(d))==0]  # Remove NA data
@@ -32,8 +32,6 @@ plot_cluster_history <- function(cell_cluster_history){
                    cell_cluster_history[,i]), 2)
     new_colnames[i] <- paste0(new_colnames[i], "\nRI:", rand_ind[i-1])
   }
-
-
 
   colnames(d) <- new_colnames
   #
@@ -76,11 +74,12 @@ plot_cluster_history <- function(cell_cluster_history){
 
   # Plotting it
   # Slow. But keeps track of individual cells
-  p <- ggplot(d, aes(x = iteration,
-                stratum = cluster,
-                alluvium = cell,
-                fill = cluster,
-                label = cluster)) +
+  if(correct_plot){
+    p <- ggplot(d, aes(x = iteration,
+                  stratum = cluster,
+                  alluvium = cell,
+                  fill = cluster,
+                  label = cluster)) +
     scale_fill_brewer(type = "qual", palette = "Set2") +
     geom_flow(stat = "alluvium", lode.guidance = "frontback") +
     geom_stratum(alpha=0.5) +
@@ -88,20 +87,20 @@ plot_cluster_history <- function(cell_cluster_history){
     theme(legend.position = "bottom") +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
     ggtitle("Alluvial diagram tracking cluster allocation in each iteration")
-
-  # ggsave('cell_cluster_history.png', plot=p, dpi = 300, height = 6, width = 12, unit = 'in')
+    print(p)
+    # ggsave('cell_cluster_history.png', plot=p, dpi = 300, height = 6, width = 12, unit = 'in')
+  }else{
   # Doesn't keep track of individual cells
-  # ggplot(d, aes(x = iteration, stratum = cluster, alluvium = cell, fill = cluster, label = cluster)) +
-  #   scale_fill_brewer(type = "qual", palette = "Set2") +
-  #   geom_flow() +
-  #   geom_stratum() +
-  #   ylab("Cells") +
-  #   xlab("Iteration") +
-  #   labs(fill="Cluster") +
-  #   theme(legend.position = "bottom") +
-  #   ggtitle(paste0("Log of cluster allocation\nRand index of true vs final: ",round(rand_ind,2)))
-
-
+    ggplot(d, aes(x = iteration, stratum = cluster, alluvium = cell, fill = cluster, label = cluster)) +
+      scale_fill_brewer(type = "qual", palette = "Set2") +
+      geom_flow() +
+      geom_stratum() +
+      ylab("Cells") +
+      xlab("Iteration") +
+      labs(fill="Cluster") +
+      theme(legend.position = "bottom") +
+      ggtitle(paste0("Log of cluster allocation\nRand index of true vs final: ",round(rand_ind,2)))
+}
 
 
 }
