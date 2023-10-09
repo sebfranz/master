@@ -75,6 +75,7 @@ r2plot <- function(iteration, r2, prev_cell_clust, n_cell_clusters = 2){
 }
 
 set.seed(1234)
+
 ```
 
 ## Simplified biclust demo
@@ -271,6 +272,8 @@ Since there is only one regulator gene, we will skip the L1 penalty for adding c
 ```{r}
   # For all cells, calculate the likelihood of coming from the model corresponding to each 
   like <- matrix(0, nrow = nrow(dat), ncol = n_cell_clusters)
+  
+  penalization_LAMBDA <-  0.5
 
   # Calculate the residual target gene variance for each gene and cluster
   # (so just one gene).
@@ -296,7 +299,9 @@ Since there is only one regulator gene, we will skip the L1 penalty for adding c
       }
       SQUARED_ERROR <- (dat[cell,ind_targetgenes] - as.vector(c(1,dat[cell,ind_reggenes])) %*% models[[cell_cluster]]$coefficients)^2
       
-      like[cell,cell_cluster] <- SQUARED_ERROR/2/ TARGET_GENE_RESIDUAL_var[cell_cluster]
+      penalization<- penalization_LAMBDA * models[[cell_cluster]]$coefficients[2]/TARGET_GENE_RESIDUAL_var[cell_cluster]
+      
+      like[cell,cell_cluster] <- SQUARED_ERROR/2/ TARGET_GENE_RESIDUAL_var[cell_cluster] - penalization #negative penalty as higher likelihood is better
     }
   }
 
