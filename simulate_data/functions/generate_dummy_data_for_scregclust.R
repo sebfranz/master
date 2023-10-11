@@ -1,5 +1,40 @@
 #!/usr/bin/Rscript
 
+calc_scregclust_stats <- function(b, total_target_genes, total_regulator_genes, S){
+  total_target_genes_used <- 0
+  total_regulator_genes_used_vector <- vector(length=total_regulator_genes)
+  total_used_target_gene_clusters <- 0
+  for(i in 1:length(b)){
+    if(is.null(b[[i]])){
+      target_genes <- 0
+      regulators <- 0
+    }else{
+      target_genes <- ncol(b[[i]])
+      regulator_vector <- apply(X = b[[i]]!=0, MARGIN = 1, FUN = all)
+      print(as.numeric(regulator_vector))
+      print(abs(S[i,]))
+      regulators <- sum(regulator_vector)
+      total_regulator_genes_used_vector <- total_regulator_genes_used_vector + regulator_vector
+      total_used_target_gene_clusters <- total_used_target_gene_clusters + 1
+    }
+    total_target_genes_used <- total_target_genes_used + target_genes
+
+    print(paste("Cluster", i, "T", target_genes, "R", regulators))
+
+  }
+  total_used_regulators <- sum(total_regulator_genes_used_vector!=0)
+  print(paste0("Total used target genes ", total_target_genes_used, "/", total_target_genes,
+               ". Total used regulators ", total_used_regulators, "/", total_regulator_genes,
+               ". Total used target gene clusters ", total_used_target_gene_clusters, "/", length(b)))
+  res <- c("total_target_genes_used"=total_target_genes_used,
+           "total_target_genes"=total_target_genes,
+           "total_used_regulators"=total_used_regulators,
+           "total_regulator_genes"=total_regulator_genes,
+           "total_used_target_gene_clusters"=total_used_target_gene_clusters,
+           "total_target_gene_clusters"=length(b))
+  return(res)
+}
+
 #' Dummy data generation for scRegClust
 #'
 #' Generates dummy data that work with scRegClust.
@@ -243,15 +278,20 @@ generate_dummy_data_for_scregclust <- function(
   for(i_target_gene_cluster in 1:n_target_gene_clusters){
     Beta_with_signs[[i_target_gene_cluster]] <-  (diag_(S[i_target_gene_cluster,]) %*% Beta[,,i_target_gene_cluster])  %*% diag_(Pi[i_target_gene_cluster,])
   }
-
+  print("------------- Z_r")
+  print(str(Z_r))
+  print(S)
   # Todo: Vectorize this
   # Create Z_t
+  print("------------")
   for(i_target_gene_cluster in 1:n_target_gene_clusters){
     for(i_target_gen in 1:n_target_genes){
+      # a <- Z_r[,R2R_i(i_target_gene_cluster)] %*% diag_(S2S_i(i_target_gene_cluster))
+      #   print(str(a))
       target_gene <- Z_r[,R2R_i(i_target_gene_cluster)] %*%     # Gene expression of regulators of cluster i
         diag_(S2S_i(i_target_gene_cluster)) %*%  # Signs for whether regulators are stimulating or repressing
         Beta2Beta_i(i_target_gene_cluster)[,i_target_gen]   # How much reg of cluster i affects target j
-      error_mean <- mean(target_gene)/10
+      error_mean <- mean(target_gene)/100
 
       Z_t[,i_target_gen] <-
         Z_t[,i_target_gen] +
@@ -273,12 +313,16 @@ generate_dummy_data_for_scregclust <- function(
     is_regulator = (1:(n_target_genes+n_regulator_genes) > n_target_genes) + 0,  # vector indicating which genes are regulators
     n_cl        = n_target_gene_clusters,
     penalization = 0.001,
-    verbose = FALSE
+    verbose = TRUE
   )-> scRegOut
 
   true_clust_allocation <- apply(X=Pi, MARGIN=2, FUN=function(x) which(x==1))
   predicted_cluster_allocation <- scRegOut$results[[1]]$output[[1]]$cluster[1:n_target_genes]
   rand_index <- aricode::RI(true_clust_allocation, predicted_cluster_allocation)
+  calc_scregclust_stats(b=scRegOut$results[[1]]$output[[1]]$coeffs,
+                        total_target_genes=n_target_genes,
+                        total_regulator_genes=n_regulator_genes,
+                        S=S)
 
   if(rand_index!=1){
     stop("scregclust couldn't find correct clusters in generated data. Rand index:", rand_index)
