@@ -100,12 +100,13 @@ Now using these regulator gene expressions we will build some target gene expres
 This will correspond to them being built from different regulatory models. So, first we define how many clusters we want, and define our regulatory model for each cell cluster.
 
 ```{r models}
+
 n_cell_clusters    <- 2
 
 # Sample intercepts
-intercepts <- rnorm(n_cell_clusters, mean = 10, sd = 5)
+intercepts <- rnorm(n_cell_clusters, mean = 10, sd = 5) * 0 #can just set to zero without loss of generality as data will be 
 # Sample slopes
-betas      <- rnorm(n_cell_clusters, mean = 1,  sd = 0.5)
+betas      <- rnorm(n_cell_clusters, mean = 0,  sd =  5)
 #target-gene variance per target gene cluster
 sigmas     <- rnorm(n_cell_clusters, mean = 1,  sd = 0.1)
 
@@ -149,6 +150,7 @@ The end goal of the real biclust is that it can use another clustering method to
 For this simple example, our idea is to put some observations into the wrong cluster, and see if the biclust-algorithm can put them back to the true cluster. We set up cluster labels with mostly true labels, but a proportion of the labels permuted.
 
 ```{r}
+
 disturbed_initial_cell_clust <- true_cell_clust
 disturbed_fraction <- 0.20
 for(i_cluster in 1:n_cell_clusters){
@@ -162,6 +164,7 @@ for(i_cluster in 1:n_cell_clusters){
 
 cell_cluster_history <- cbind(true_cell_clust, disturbed_initial_cell_clust)
 colnames(cell_cluster_history) <- c("True allocation", "Disturbed allocation")
+
 ```
 
 ## Biclust, first iteration
@@ -270,16 +273,18 @@ Since there is only one regulator gene, we will skip the L1 penalty for adding c
 
 
 ```{r}
-  # For all cells, calculate the likelihood of coming from the model corresponding to each 
-  like <- matrix(0, nrow = nrow(dat), ncol = n_cell_clusters)
-  
-  penalization_LAMBDA <-  0.5
 
-  # Calculate the residual target gene variance for each gene and cluster
-  # (so just one gene).
-  TARGET_GENE_RESIDUAL_var <-  matrix(0, nrow = n_target_genes, ncol = n_cell_clusters)
-  # dat is dat <- cbind(target_expression, regulator_expression), e.g. a 2x100, with e.g. the first 50 rows being true cell cluster 1
-  # 100x2 * 2x1 
+# For all cells, calculate the likelihood of coming from the model corresponding to each 
+like <- matrix(0, nrow = nrow(dat), ncol = n_cell_clusters)
+
+penalization_LAMBDA <-  0.5
+
+# Calculate the residual target gene variance for each gene and cluster
+# (so just one gene).
+TARGET_GENE_RESIDUAL_var <-  matrix(0, nrow = n_target_genes, ncol = n_cell_clusters)
+# dat is dat <- cbind(target_expression, regulator_expression), e.g. a 2x100, with e.g. the first 50 rows being true cell cluster 1
+# 100x2 * 2x1 
+
   for(cell_cluster in 1:n_cell_clusters){
     #
     intercept_and_regulatorgenes <- as.matrix(cbind(rep(1,nrow(dat)),dat[,ind_reggenes]))  # 100x2
@@ -297,12 +302,19 @@ Since there is only one regulator gene, we will skip the L1 penalty for adding c
         NA_coeffs <-  unname(which(is.na(models[[cell_cluster]]$coefficients)))
         S_ERR <- (dat[cell,ind_targetgenes] - as.vector(c(1,dat[cell,c(-1, -NA_coeffs)])) %*% models[[cell_cluster]]$coefficients[-NA_coeffs])^2
       }
+      
       SQUARED_ERROR <- (dat[cell,ind_targetgenes] - as.vector(c(1,dat[cell,ind_reggenes])) %*% models[[cell_cluster]]$coefficients)^2
       
-      penalization<- penalization_LAMBDA * models[[cell_cluster]]$coefficients[2]/TARGET_GENE_RESIDUAL_var[cell_cluster]
+      penalization <- penalization_LAMBDA * models[[cell_cluster]]$coefficients[2]/TARGET_GENE_RESIDUAL_var[cell_cluster]
       
-      like[cell,cell_cluster] <- SQUARED_ERROR/2/ TARGET_GENE_RESIDUAL_var[cell_cluster] - penalization #negative penalty as higher likelihood is better
+      # like[cell,cell_cluster] <- SQUARED_ERROR / 2 / TARGET_GENE_RESIDUAL_var[cell_cluster] - penalization #negative penalty as higher likelihood is better
+      
+      like[cell,cell_cluster] <- -log(TARGET_GENE_RESIDUAL_var[cell_cluster])/2 - 
+                                  1/2/TARGET_GENE_RESIDUAL_var[cell_cluster]* SQUARED_ERROR + #here we are optimizing the penalized NEGATIVE likelyhood, so penalty is positive
+                                  penalization 
+      
     }
+    
   }
 
   like_all[[i_main]] <- like
@@ -319,6 +331,7 @@ Since there is only one regulator gene, we will skip the L1 penalty for adding c
         labs(x = "Log-likelihood for fitting into cluster 1", y = "Log-likelihood for fitting into cluster 2")
   
   p + labs(color = "True cell cluster")
+  
 
 ```
 
@@ -327,14 +340,13 @@ And now that we have our like data, it's time to re-assign cluster labels. This 
 Usually this would raise the concern of over-fitting, since a cell was used to fit the model for the cluster it was in the start of the iteration. If that was a big problem, cells would tend to be assigned to the same cluster as they started in. As you can see, that's not really a problem.
 
 ```{r}
-  # Update cluster allocations
-  updated_cell_clust <-  sapply(1:nrow(like), function(row) which.max(like[row,]))
 
+# Update cluster allocations
+updated_cell_clust <-  sapply(1:nrow(like), function(row) which.min(like[row,]))
 
-  # Update data in cell_cluster_history
-  cell_cluster_history[, i_main + initial_column_padding] <- updated_cell_clust
-
-  RI(true_cell_clust,updated_cell_clust)
+# Update data in cell_cluster_history
+cell_cluster_history[, i_main + initial_column_padding] <- updated_cell_clust
+RI(true_cell_clust,updated_cell_clust)
 
 ```
 
