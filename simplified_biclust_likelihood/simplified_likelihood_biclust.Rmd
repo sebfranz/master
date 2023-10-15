@@ -130,7 +130,7 @@ cell_cluster_expression <- sapply(1:n_cell_clusters, function(cellCluster)
     c(intercepts[cellCluster], betas[cellCluster]) %*%
                                     t(cbind(rep(1, num_cells/2), regulator_expression[which(true_cell_clust == cellCluster)])) 
     ) + #add noise
-    rnorm(num_cells/2, 0, sigmas[cellCluster])
+    rnorm(num_cells/2, 0, sd = sqrt(sigmas[cellCluster]))
 )
 
 target_expression <- c(cell_cluster_expression[,1], cell_cluster_expression[,2])
@@ -175,8 +175,9 @@ The real thing would obviously work for many iterations, but for now lets just w
 First we set up and pre-allocate some variables that we'll use later.
 
 ```{r}
+stop_iterating_flag <- 0 #flag if we have converged
 i_main <- 1  # Main iteration variable, just set it to one for now.
-max_iter <- 1  # This one would usually cap number of iterations, set to 1 for now
+max_iter <- 40  # This one would usually cap number of iterations, 
 
 
 # Find initial cluster labels
@@ -347,6 +348,28 @@ updated_cell_clust <-  sapply(1:nrow(like), function(row) which.min(like[row,]))
 # Update data in cell_cluster_history
 cell_cluster_history[, i_main + initial_column_padding] <- updated_cell_clust
 RI(true_cell_clust,updated_cell_clust)
+
+#check convergence of cluster labels
+# Compare clusters with with previous iterations so we can exit if we seen this allocation before
+for(prev_clustering in ((i_main-1):0) ){
+  print(paste0('Comparing with iteration ', prev_clustering))
+  if(RI(updated_cell_clust,cell_cluster_history[,prev_clustering + initial_column_padding]) == 1){
+    print("Cell clustering from iteration same as some previous iteration. Exiting.")
+    print(paste0("RI of ",
+                 RI(updated_cell_clust, cell_cluster_history[,prev_clustering + initial_column_padding]),
+                 " when comparing iteration ", i_main," to iteration ", prev_clustering))
+    stop_iterating_flag <- T
+    break
+  }
+}
+
+if(stop_iterating_flag == T){
+  # Clean up cluster history
+  cell_cluster_history <- cell_cluster_history[ , colSums(is.na(cell_cluster_history))==0, drop=FALSE]
+  # Stop iterations/exit function
+  break
+}
+
 
 ```
 
