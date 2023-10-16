@@ -148,21 +148,33 @@ for(cell_cluster in 1:n_cell_clusters){
 # For all cells, calculate the likelihood of coming from the model corresponding to each
 like <- matrix(0, nrow = nrow(dat), ncol = n_cell_clusters)
 
-penalization_LAMBDA <-  10
+penalization_LAMBDA <-  0
 
 # Calculate the residual target gene variance for each gene and cluster
 # (so just one gene).
+
+#preallocate residual variance estimates
 TARGET_GENE_RESIDUAL_var <-  matrix(0, nrow = n_target_genes, ncol = n_cell_clusters)
 # dat is dat <- cbind(target_expression, regulator_expression), e.g. a 2x100, with e.g. the first 50 rows being true cell cluster 1
 # 100x2 * 2x1
 
   for(cell_cluster in 1:n_cell_clusters){
-    #
+
+
     intercept_and_regulatorgenes <- as.matrix(cbind(rep(1,nrow(dat)),dat[,ind_reggenes]))  # 100x2
     current_rows <- which(current_cell_cluster_allocation == cell_cluster)
 
-    residuals_temp <- dat[current_rows,ind_targetgenes] - (intercept_and_regulatorgenes[current_rows,] %*% models[[cell_cluster]]$coefficients)
-    TARGET_GENE_RESIDUAL_var[cell_cluster]  <- var(residuals_temp)
+    if(length(models[[cell_cluster]]$coefficients) == 1){
+      PREDICTED_VALUES <- (as.matrix(intercept_and_regulatorgenes[current_rows, -1]) %*%
+                             models[[cell_cluster]]$coefficients)
+    }else{
+      PREDICTED_VALUES <- (intercept_and_regulatorgenes[current_rows,] %*%
+                             models[[cell_cluster]]$coefficients)
+    }
+
+    residuals <- dat[current_rows,ind_targetgenes] - PREDICTED_VALUES
+
+    TARGET_GENE_RESIDUAL_var[cell_cluster]  <- var(residuals)
   }
 
   # Now to actually calculate predicted or 'predicted' r2
@@ -174,54 +186,73 @@ TARGET_GENE_RESIDUAL_var <-  matrix(0, nrow = n_target_genes, ncol = n_cell_clus
         S_ERR <- (dat[cell,ind_targetgenes] - as.vector(c(1,dat[cell,c(-1, -NA_coeffs)])) %*% models[[cell_cluster]]$coefficients[-NA_coeffs])^2
       }
 
-      SQUARED_ERROR <- (dat[cell,ind_targetgenes] - as.vector(c(1,dat[cell,ind_reggenes])) %*% models[[cell_cluster]]$coefficients)^2
+      if(length(models[[cell_cluster]]$coefficients) == 1){
+        PREDICTED_VALUE <- as.matrix(dat[cell,ind_reggenes]) %*% models[[cell_cluster]]$coefficients
+      }else{
+        PREDICTED_VALUE <- as.vector(c(1,dat[cell,ind_reggenes])) %*% models[[cell_cluster]]$coefficients
+      }
 
-      coefficient_vector_1norm <- sum(abs(models[[cell_cluster]]$coefficients[2]))
+      if(length(models[[cell_cluster]]$coefficients) == 1){
+        coefficient_vector_1norm <- sum(abs(models[[cell_cluster]]$coefficients))
+        }else{
+         coefficient_vector_1norm <- sum(abs(models[[cell_cluster]]$coefficients[-1]))
+      }
+
+      OBSERVED_VALUE <- dat[cell,ind_targetgenes]
+
+      SQUARED_ERROR <- (OBSERVED_VALUE - PREDICTED_VALUE)^2
 
       penalization <- penalization_LAMBDA * coefficient_vector_1norm/TARGET_GENE_RESIDUAL_var[cell_cluster]
 
       # like[cell,cell_cluster] <- SQUARED_ERROR / 2 / TARGET_GENE_RESIDUAL_var[cell_cluster] - penalization #negative penalty as higher likelihood is better
 
-      like[cell,cell_cluster] <- log(TARGET_GENE_RESIDUAL_var[cell_cluster])/2 +
-                                  SQUARED_ERROR/2/TARGET_GENE_RESIDUAL_var[cell_cluster] + #here we are optimizing the penalized NEGATIVE likelyhood, so penalty is positive
-                                  penalization
+      #here we are optimizing the penalized NEGATIVE likelyhood,
+      #so penalty is positive
+
+      like[cell,cell_cluster] <- as.numeric(log(TARGET_GENE_RESIDUAL_var[cell_cluster])/2 +
+                                  SQUARED_ERROR/2/TARGET_GENE_RESIDUAL_var[cell_cluster] +
+                                  penalization)
 
     }
-
   }
 
   likelihood_all[[i_main]] <- like
 
   # r2plot(iteration = i_main,
   #      r2 = like,
-  #      prev_cell_clust = true_cell_clust)
-  #
-  # p <- ggplot(data = as.tibble(cbind(like, true_cell_clust)),
-  #      aes(x = V1, y = V2, color = as.factor(true_cell_clust))
-  #     ) +
-  #     geom_point() +
-  #       geom_abline(intercept = 0, slope = 1)+
-  #       labs(x = "Log-likelihood for fitting into cluster 1", y = "Log-likelihood for fitting into cluster 2")
-  #
-  # p + labs(color = "True cell cluster")
+  #      prev_cell_clust = dat$true_cell_clust)
 
+  p <- ggplot(data = as.tibble(cbind(like, dat$true_cell_clust)),
+       aes(x = V1, y = V2, color = as.factor(dat$true_cell_clust))
+      ) +
+      geom_point() +
+        geom_abline(intercept = 0, slope = 1)+
+        labs(x = "Log-likelihood for fitting into cluster 1", y = "Log-likelihood for fitting into cluster 2")
+
+  png(file.path(execution_path,paste0("Decision_line","_lambda_",
+                                      round(penalization_LAMBDA, 0.1),".png")))
+  p + labs(color = "True cell cluster")
+  dev.off()
 
 # Update cluster allocations
 updated_cell_clust <-  sapply(1:nrow(like), function(row) which.min(like[row,]))
 
 # Update data in cell_cluster_history
 cell_cluster_history[, i_main + initial_column_padding] <- updated_cell_clust
-RI(true_cell_clust,updated_cell_clust)
+RI(dat$true_cell_clust,updated_cell_clust)
 
 #check convergence of cluster labels
 # Compare clusters with with previous iterations so we can exit if we seen this allocation before
 for(prev_clustering in ((i_main-1):0) ){
   print(paste0('Comparing with iteration ', prev_clustering))
-  if(RI(updated_cell_clust,cell_cluster_history[,prev_clustering + initial_column_padding]) == 1){
+  RAND_INDEX <- RI(updated_cell_clust,
+                   as.matrix(cell_cluster_history)[,prev_clustering + initial_column_padding]
+  )
+    if(RAND_INDEX == 1){
     print("Cell clustering from iteration same as some previous iteration. Exiting.")
-    print(paste0("RI of ",
-                 RI(updated_cell_clust, cell_cluster_history[,prev_clustering + initial_column_padding]),
-                 " when comparing iteration ", i_main," to iteration ", prev_clustering))
+    print(paste0("RI of ", RAND_INDEX,
+                 " when comparing iteration ", i_main,
+                 " to iteration ", prev_clustering))
     stop_iterating_flag <- T
     break
   }
@@ -237,7 +268,9 @@ if(stop_iterating_flag == T){
 
 }
 cell_cluster_history_plotting <-cbind('Cell ID' = cell_cluster_history[,1],
-                             true_cell_clust,
+                             dat$true_cell_clust,
                              cell_cluster_history[,c(2,3,4)])
-
+png(file.path(execution_path,paste0("Alluvial_diag_","_lambda_",
+                                    round(penalization_LAMBDA, 0.1),".png")))
 plot_cluster_history(cell_cluster_history = cell_cluster_history_plotting)
+dev.off()
