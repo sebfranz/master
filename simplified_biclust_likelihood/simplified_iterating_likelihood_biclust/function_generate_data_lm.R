@@ -13,44 +13,44 @@ library(tidyverse)
 #' @examples
 #'   checks(regulator_mean, one_element=TRUE, atomic=TRUE, numeric=TRUE, positive=TRUE, int=FALSE)
 #' @noRd  # Keep this as an internal helper function
-checks <- function(x, one_element=TRUE, atomic=TRUE, numeric=TRUE, positive=TRUE, int=TRUE){
+checks <- function(x, one_element = TRUE, atomic = TRUE, numeric = TRUE, positive = TRUE, int = TRUE) {
   error_message <- ""
-  if(one_element){
+  if (one_element) {
     if (!(length(x) == 1L)) {
       add_message <- paste0(deparse(substitute(x)), " must be one number.")
-      error_message <- paste(error_message, add_message, sep="\n")
+      error_message <- paste(error_message, add_message, sep = "\n")
     }
   }
 
-  if(atomic){
-    if(!is.atomic(x)) {
+  if (atomic) {
+    if (!is.atomic(x)) {
       add_message <- (paste0(deparse(substitute(x)), " must be atomic."))
-      error_message <- paste(error_message, add_message, sep="\n")
+      error_message <- paste(error_message, add_message, sep = "\n")
     }
   }
 
-  if(numeric){
+  if (numeric) {
     if (!is.numeric(x)) {
       add_message <- (paste0(deparse(substitute(x)), " must be numeric."))
-      error_message <- paste(error_message, add_message, sep="\n")
+      error_message <- paste(error_message, add_message, sep = "\n")
     }
   }
 
-  if(positive){
+  if (positive) {
     if (!all(x > 0)) {
       add_message <- (paste0(deparse(substitute(x)), " must be >0."))
-      error_message <- paste(error_message, add_message, sep="\n")
+      error_message <- paste(error_message, add_message, sep = "\n")
     }
   }
 
-  if(int){
-    if (!(all(round(x)==x))) {
+  if (int) {
+    if (!(all(round(x) == x))) {
       add_message <- (paste0(deparse(substitute(x)), " must be an integer/s, now it's: ", toString(x)))
-      error_message <- paste(error_message, add_message, sep="\n")
+      error_message <- paste(error_message, add_message, sep = "\n")
     }
   }
 
-  if(nchar(error_message)>1){
+  if (nchar(error_message) > 1) {
     stop(error_message)
   }
 }
@@ -94,13 +94,13 @@ checks <- function(x, one_element=TRUE, atomic=TRUE, numeric=TRUE, positive=TRUE
 generate_data_lm <- function(n_cell_clusters = 3,
                              n_target_gene_type = 5,  # We have x named target genes that have one expression per cell
                              n_regulator_gene_type = 20,  # We have x named regulator genes that have one expression per cell
-                             n_cells = c(1000,5000,10000),
-                             regulator_means = c(1,2,3),  # Regulator mean expression in each cell cluster.
-                             regulator_standard_deviations = c(0.1,0.2,0.3),  # Regulator sd for expression in each cell cluster.
+                             n_cells = c(1000, 5000, 10000),
+                             regulator_means = c(1, 2, 3),  # Regulator mean expression in each cell cluster.
+                             regulator_standard_deviations = c(0.1, 0.2, 0.3),  # Regulator sd for expression in each cell cluster.
                              coefficients_standard_deviation = 100, # 'The betas/slopes'. One per target gene. Instead of providing mean and standard deviation for each target gene, we provide the standard deviation from which these will be generated. Mean will be 0.
                              target_gene_type_standard_deviation = 3,
-                             disturbed_fraction=0.1 # Value between 0 and 1. How large portion of cells should move to other cell clusters.
-){
+                             disturbed_fraction = 0.1 # Value between 0 and 1. How large portion of cells should move to other cell clusters.
+) {
 
 
   # Manual arguments ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -116,15 +116,15 @@ generate_data_lm <- function(n_cell_clusters = 3,
 
 
   # Check arguments -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  checks(n_cell_clusters, one_element=TRUE, atomic=TRUE, numeric=TRUE, positive=TRUE, int=TRUE)
-  checks(n_target_gene_type, one_element=TRUE, atomic=TRUE, numeric=TRUE, positive=TRUE, int=TRUE)
-  checks(n_regulator_gene_type, one_element=TRUE, atomic=TRUE, numeric=TRUE, positive=TRUE, int=TRUE)
-  checks(n_cells, one_element=FALSE, atomic=TRUE, numeric=TRUE, positive=TRUE, int=TRUE)
-  checks(regulator_means, one_element=FALSE, atomic=TRUE, numeric=TRUE, positive=FALSE, int=FALSE)
-  checks(regulator_standard_deviations, one_element=FALSE, atomic=TRUE, numeric=TRUE, positive=TRUE, int=FALSE)
-  checks(coefficients_standard_deviation, one_element=TRUE, atomic=TRUE, numeric=TRUE, positive=TRUE, int=FALSE)
-  checks(target_gene_type_standard_deviation, one_element=TRUE, atomic=TRUE, numeric=TRUE, positive=TRUE, int=FALSE)
-  checks(disturbed_fraction, one_element=TRUE, atomic=TRUE, numeric=TRUE, positive=TRUE, int=FALSE)
+  checks(n_cell_clusters, one_element = TRUE, atomic = TRUE, numeric = TRUE, positive = TRUE, int = TRUE)
+  checks(n_target_gene_type, one_element = TRUE, atomic = TRUE, numeric = TRUE, positive = TRUE, int = TRUE)
+  checks(n_regulator_gene_type, one_element = TRUE, atomic = TRUE, numeric = TRUE, positive = TRUE, int = TRUE)
+  checks(n_cells, one_element = FALSE, atomic = TRUE, numeric = TRUE, positive = TRUE, int = TRUE)
+  checks(regulator_means, one_element = FALSE, atomic = TRUE, numeric = TRUE, positive = FALSE, int = FALSE)
+  checks(regulator_standard_deviations, one_element = FALSE, atomic = TRUE, numeric = TRUE, positive = TRUE, int = FALSE)
+  checks(coefficients_standard_deviation, one_element = TRUE, atomic = TRUE, numeric = TRUE, positive = TRUE, int = FALSE)
+  checks(target_gene_type_standard_deviation, one_element = TRUE, atomic = TRUE, numeric = TRUE, positive = TRUE, int = FALSE)
+  checks(disturbed_fraction, one_element = TRUE, atomic = TRUE, numeric = TRUE, positive = TRUE, int = FALSE)
 
   if (length(n_cells) != n_cell_clusters) {
     stop(paste0("n_cells has length ", length(n_cells), ", but must have length n_cell_clusters: ", n_cell_clusters, "."))
@@ -141,21 +141,21 @@ generate_data_lm <- function(n_cell_clusters = 3,
 
   # Calculated variables --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   n_total_cells <- sum(n_cells)
-  true_cell_cluster_allocation <- rep(1:n_cell_clusters, times=n_cells)  # Cell cluster IDs will be in order
+  true_cell_cluster_allocation <- rep(1:n_cell_clusters, times = n_cells)  # Cell cluster IDs will be in order
 
 
   # Generate regulator expressions for each cell cluster ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  regulator_gene_expression <- vector(mode='list', length = n_cell_clusters)
-  for(i_cell_cluster in 1:n_cell_clusters){
+  regulator_gene_expression <- vector(mode = 'list', length = n_cell_clusters)
+  for (i_cell_cluster in 1:n_cell_clusters) {
     current_n_cells <- n_cells[i_cell_cluster]
-    temp_regulator_gene_expressions_vector <- rnorm(current_n_cells*n_regulator_gene_type,
+    temp_regulator_gene_expressions_vector <- rnorm(current_n_cells * n_regulator_gene_type,
                                                     mean = regulator_means[i_cell_cluster],
                                                     sd = regulator_standard_deviations[i_cell_cluster])
     regulator_gene_expression[[i_cell_cluster]] <- matrix(temp_regulator_gene_expressions_vector,
-                                                          ncol=n_regulator_gene_type)
+                                                          ncol = n_regulator_gene_type)
   }
   regulator_gene_expression <- do.call(rbind, regulator_gene_expression)
-  colnames(regulator_gene_expression) <- paste0("r",1:n_regulator_gene_type)
+  colnames(regulator_gene_expression) <- paste0("r", 1:n_regulator_gene_type)
   regulator_gene_expression <- tibble::as_tibble(regulator_gene_expression)
 
 
@@ -163,44 +163,42 @@ generate_data_lm <- function(n_cell_clusters = 3,
   # One per target gene type in each cell cluster meaning:
   # Two cell clusters with one target gene type in each: total number of betas=2
   # Two cell clusters with 3 respectively 4 target gene types: total number of betas=7
-  betas <- vector(mode='list', length = n_cell_clusters)
-  for(i_cell_cluster in 1:n_cell_clusters){
+  betas <- vector(mode = 'list', length = n_cell_clusters)
+  for (i_cell_cluster in 1:n_cell_clusters) {
     temp_betas_for_cell_cluster <- rnorm(n_target_gene_type,
                                          mean = 0,
-                                         sd =  coefficients_standard_deviation)
+                                         sd = coefficients_standard_deviation)
     # We want the different betas for each target gene type in the cell cluster, but the same across all regulator genes
     # Produces a matrix (Target gene types) x (Regulator gene types)
-    temp_betas <- t(matrix(rep(temp_betas_for_cell_cluster, n_regulator_gene_type), ncol=n_regulator_gene_type))
-    colnames(temp_betas) <- paste0("b",1:n_target_gene_type)
+    temp_betas <- t(matrix(rep(temp_betas_for_cell_cluster, n_regulator_gene_type), ncol = n_regulator_gene_type))
+    colnames(temp_betas) <- paste0("b", 1:n_target_gene_type)
     betas[[i_cell_cluster]] <- tibble::as_tibble(temp_betas)
   }
 
 
-
   # Calculate target gene expressions for each cell cluster ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   cell_cluster_target_gene_expression <- sapply(1:n_cell_clusters,
-                                                function(i_cell_cluster){
+                                                function(i_cell_cluster) {
                                                   current_betas <- betas[[i_cell_cluster]]  # This picks out the relevant betas, as many as there are target gene types in this cell cluster
                                                   current_regulator_gene_index <- which(true_cell_cluster_allocation == i_cell_cluster)
                                                   current_regulator_gene_expressions <- regulator_gene_expression[current_regulator_gene_index,]
                                                   residuals <- rnorm(n_cells[i_cell_cluster],
-                                                                     mean=0,
-                                                                     sd=target_gene_type_standard_deviation)
-                                                  return( as.matrix(current_regulator_gene_expressions) %*% as.matrix(current_betas) + residuals)
+                                                                     mean = 0,
+                                                                     sd = target_gene_type_standard_deviation)
+                                                  return(as.matrix(current_regulator_gene_expressions) %*% as.matrix(current_betas) + residuals)
                                                 }
   )
   # Put it into a tibble
   target_gene_expression <- do.call(rbind, cell_cluster_target_gene_expression)
-  colnames(target_gene_expression) <- paste0("t",1:n_target_gene_type)
+  colnames(target_gene_expression) <- paste0("t", 1:n_target_gene_type)
   target_gene_expression <- tibble::as_tibble(target_gene_expression)
-
 
 
   # Construct output data structure (also a tibble) -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   dat <- tibble::tibble(cell_id = (1:n_total_cells),
-                        true_cell_cluster_allocation,
-                        target_gene_expression,
-                        regulator_gene_expression)
+                        true_cell_cluster_allocation = factor(true_cell_cluster_allocation),
+                        target_gene_expression = target_gene_expression,
+                        regulator_gene_expression = regulator_gene_expression)
 
   return(dat)
   # return indexes of different gene types?
@@ -214,10 +212,9 @@ generate_data_lm <- function(n_cell_clusters = 3,
 }
 
 
-
 # Runs only when script is run by itself
 # || interactive()
-if (sys.nframe() == 0){
+if (sys.nframe() == 0) {
   # ... do main stuff
   library(ggfortify)  # For pca-plot
 
@@ -227,16 +224,16 @@ if (sys.nframe() == 0){
   dat <- generate_data_lm(n_cell_clusters = 3,
                           n_target_gene_type = 5,  # We have x named target genes that have one expression per cell
                           n_regulator_gene_type = 20,  # We have x named regulator genes that have one expression per cell
-                          n_cells = c(1000,5000,10000),
-                          regulator_means = c(1,2,5),  # Regulator mean expression in each cell cluster.
-                          regulator_standard_deviations = c(0.1,0.2,0.3),  # Regulator sd for expression in each cell cluster.
+                          n_cells = c(1000, 5000, 10000),
+                          regulator_means = c(1, 2, 5),  # Regulator mean expression in each cell cluster.
+                          regulator_standard_deviations = c(0.1, 0.2, 0.3),  # Regulator sd for expression in each cell cluster.
                           coefficients_standard_deviation = 100, # 'The betas/slopes'. One per target gene. Instead of providing mean and standard deviation for each target gene, we provide the standard deviation from which these will be generated. Mean will be 0.
                           target_gene_type_standard_deviation = 3,
-                          disturbed_fraction=0.1 # Value between 0 and 1. How large portion of cells should move to other cell clusters.
+                          disturbed_fraction = 0.1 # Value between 0 and 1. How large portion of cells should move to other cell clusters.
   )
 
-  dat[,'true_cell_cluster_allocation'] <- paste("Cluster", pull(dat, 'true_cell_cluster_allocation'))  # These needs to be strings for discrete labels in pca plot
-  pca_res <- prcomp(dat[,3:ncol(dat)], scale. = TRUE)
+  dat[, 'true_cell_cluster_allocation'] <- paste("Cluster", pull(dat, 'true_cell_cluster_allocation'))  # These needs to be strings for discrete labels in pca plot
+  pca_res <- prcomp(dat[, 3:ncol(dat)], scale. = TRUE)
   p <- ggplot2::autoplot(pca_res, data = dat, colour = 'true_cell_cluster_allocation')
   plot(p)
   print(dat)
