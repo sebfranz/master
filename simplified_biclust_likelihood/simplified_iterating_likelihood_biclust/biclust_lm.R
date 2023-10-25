@@ -28,10 +28,10 @@ set.seed(1234)
 
 dat <- generate_data_lm(n_cell_clusters = 3,
                         n_target_gene_type = 4,  # We have x named target genes that have one expression per cell
-                        n_regulator_gene_type = 5,  # We have x named regulator genes that have one expression per cell
-                        n_cells = c(1000, 5000, 10000),
-                        regulator_means = c(1, 2, 5),  # Regulator mean expression in each cell cluster.
-                        regulator_standard_deviations = c(0.1, 0.2, 0.3),  # Regulator sd for expression in each cell cluster.
+                        n_regulator_gene_type = 20,  # We have x named regulator genes that have one expression per cell
+                        n_cells = c(1000, 5000, 4000),
+                        regulator_means = c(1, 2, 3),  # Regulator mean expression in each cell cluster.
+                        regulator_standard_deviations = c(0.1, 0.2, 0.2),  # Regulator sd for expression in each cell cluster.
                         coefficients_standard_deviation = 100, # 'The betas/slopes'. One per target gene. Instead of providing mean and standard deviation for each target gene, we provide the standard deviation from which these will be generated. Mean will be 0.
                         target_gene_type_standard_deviation = 3
 )
@@ -216,22 +216,34 @@ for (i_main in 1:max_iter) {
     dev.off()
   }
 
-  # true_cell_cluster_allocation_vector <- pull(dat, var = 'true_cell_cluster_allocation')
-  # likelihood_tibble['cell_id'] <- seq_len(nrow(likelihood_tibble))
-  # for (cell_cluster in seq_len(n_cell_clusters)) {
-  #   cell_cluster_rows <- which(true_cell_cluster_allocation_vector == cell_cluster)
-  #
-  #   cell_cluster_likelihood <- likelihood_tibble[cell_cluster_rows, ]
-  #   # data_for_plotting <- tibble::tibble(cell_cluster_likelihood, true_cell_cluster_allocation = true_cell_cluster_allocation_vector)
-  #   cell_cluster_likelihood <- reshape2::melt(cell_cluster_likelihood, id.vars = "cell_id")
-  #   # Change histogram plot line colors by groups
-  #   ggplot(cell_cluster_likelihood, aes(x = cell_id, color = variable)) +
-  #     geom_histogram(fill = "white") +
-  #     stat_bin(bins=100)
-  #   # Overlaid histograms
-  #   ggplot(df, aes(x = cell_id, color = variable)) +
-  #     geom_histogram(fill = "white", alpha = 0.5, position = "identity")
-  # }
+  # Make histograms
+  true_cell_cluster_allocation_vector <- pull(dat, var = 'true_cell_cluster_allocation')
+  likelihood_tibble['cell_id'] <- seq_len(nrow(likelihood_tibble))
+  # likelihood_tibble[, 1:3] <- likelihood_tibble[, 1:3] / rowSums(likelihood_tibble[, 1:3])
+  plots <- vector(mode = "list", length = n_cell_clusters)
+  for (cell_cluster in seq_len(n_cell_clusters)) {
+    cell_cluster_rows <- which(true_cell_cluster_allocation_vector == cell_cluster)
+
+    cell_cluster_likelihood <- likelihood_tibble[cell_cluster_rows,]
+    # data_for_plotting <- tibble::tibble(cell_cluster_likelihood, true_cell_cluster_allocation = true_cell_cluster_allocation_vector)
+    cell_cluster_likelihood <- reshape2::melt(cell_cluster_likelihood, id.vars = "cell_id")
+
+    # Interleaved histograms
+    plots[[cell_cluster]] <- ggplot(cell_cluster_likelihood, aes(x = value, color = variable)) +
+      geom_histogram(fill = "white", position = "dodge", bins = 100) +
+      theme(legend.position = "top") +
+      ggtitle(label = paste("True cell cluster", cell_cluster))
+  }
+  title <- cowplot::ggdraw() + cowplot::draw_label("Likelihoods for the cells belonging in each true cell cluster.", fontface='bold')
+  p <- cowplot::plot_grid(
+    plotlist = plots,
+    align = "hv"
+  )
+  p <- cowplot::plot_grid(title, p, ncol=1, rel_heights=c(0.1, 1)) # rel_heights values control title margins
+  filename_plot <- paste0("Histograms_lambda_", round(penalization_lambda, digits = 2), "_iteration_", i_main, ".png")
+  png(file.path(execution_path, filename_plot), width = 1024, height = 800)
+  plot(p)
+  dev.off()
 
 
   # Update cluster allocations
